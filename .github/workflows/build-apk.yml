@@ -14,41 +14,35 @@ jobs:
       - name: 1. Checkout Kode Repositori
         uses: actions/checkout@v4
 
-      - name: 2. Setup Node.js (v20)
+      - name: 2. Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
-      - name: 3. Setup Java JDK (Temurin 21)
+      - name: 3. Setup Java JDK (Temurin 17)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '21'
+          java-version: '17'
 
-      - name: 4. Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: 4. Install Dependensi Node
+        run: npm install
 
-      - name: 5. Install Dependensi Node
-        run: npm ci || npm install
-
-      - name: 6. Bundling Frontend (src -> www)
+      - name: 5. Bundling Frontend (src -> www)
         run: node build.js
 
-      - name: 7. Sinkronisasi Capacitor Native
+      - name: 6. Sinkronisasi Capacitor Native
         run: npx cap sync android
 
-      - name: 8. Berikan Hak Eksekusi Gradlew
+      - name: 7. Berikan Hak Eksekusi Gradlew
+        run: chmod +x android/gradlew
+
+      - name: 8. Kompilasi Android APK (assembleDebug)
         run: |
           cd android
-          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
 
-      - name: 9. Kompilasi Android APK (assembleDebug)
-        run: |
-          cd android
-          ./gradlew assembleDebug --no-daemon --stacktrace
-
-      - name: 10. Unggah Hasil APK ke GitHub Artifacts
+      - name: 9. Unggah Hasil APK ke GitHub Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Zero-Buy-v4.0-PointZero-APK
