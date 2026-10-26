@@ -135,13 +135,55 @@
       iconFreqMonth: Piko.icon('calendar'),
       iconFreqWeek: Piko.icon('timer'),
       iconFreqDay: Piko.icon('wallet'),
-      iconFreqHour: Piko.icon('zap')
+      iconFreqHour: Piko.icon('zap'),
+      iconEyeAuthPin: Piko.icon('eye'),
+      iconCloudBox: Piko.icon('cloud'),
+      iconSyncBtnBox: Piko.icon('sync')
     };
 
     for (const [id, svg] of Object.entries(iconMap)) {
       const el = document.getElementById(id);
       if (el) el.innerHTML = svg;
     }
+  }
+
+  // --- FORMATTER MATA UANG RUPIAH DENGAN PEMISAH TITIK ---
+  function parseRawNumber(val) {
+    if (typeof val === 'number') return isNaN(val) ? 0 : val;
+    const clean = String(val || '').replace(/\D/g, '');
+    return Number(clean) || 0;
+  }
+
+  function formatNumberWithDots(val) {
+    const num = parseRawNumber(val);
+    return num > 0 ? num.toLocaleString('id-ID') : '';
+  }
+
+  function attachCurrencyFormatter(inputEl, onChangeCallback) {
+    if (!inputEl) return;
+    inputEl.addEventListener('input', (e) => {
+      const raw = parseRawNumber(e.target.value);
+      e.target.value = raw > 0 ? raw.toLocaleString('id-ID') : '';
+      if (typeof onChangeCallback === 'function') {
+        onChangeCallback(raw);
+      }
+    });
+  }
+
+  function showToast(msg) {
+    let toast = document.getElementById('pikoMiniToast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'pikoMiniToast';
+      toast.style.cssText = 'position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:rgba(30,41,59,0.92); color:#FFF; padding:8px 18px; border-radius:20px; font-size:0.8rem; z-index:999999; font-family:var(--font-brand); transition:opacity 0.3s; box-shadow:0 4px 14px rgba(0,0,0,0.25); text-align:center; pointer-events:none;';
+      document.body.appendChild(toast);
+    }
+    toast.innerText = msg;
+    toast.style.opacity = '1';
+    clearTimeout(window.__toastTimer);
+    window.__toastTimer = setTimeout(() => {
+      toast.style.opacity = '0';
+    }, 2500);
   }
 
   // --- TAMPILKAN POSE PIKO PADA ELEMEN TERTENTU ---
@@ -199,7 +241,18 @@
     }, 900);
 
     bindEventListeners();
+    initCurrencyInputs();
     startCountdownTicker();
+  }
+
+  function initCurrencyInputs() {
+    attachCurrencyFormatter(dom.itemPrice, () => updateWorkHoursPill());
+    attachCurrencyFormatter(document.getElementById('obIncomeAmount'), () => updateOnboardRatePreview());
+    attachCurrencyFormatter(document.getElementById('obObligations'), () => updateOnboardDisposablePreview());
+    attachCurrencyFormatter(document.getElementById('obGoalAmount'));
+    attachCurrencyFormatter(document.getElementById('goalAmount'));
+    attachCurrencyFormatter(document.getElementById('profAmount'));
+    attachCurrencyFormatter(document.getElementById('profObligations'));
   }
 
   // --- LOAD DATA PENGGUNA TEROTENTIKASI ---
@@ -242,10 +295,19 @@
   function launchOnboardingWizard() {
     dom.onboardingScreen.classList.add('active');
     renderPikoTo('onboardPikoBox', 'detective', 110);
-    setupOnboardStep(1);
+    const obInc = document.getElementById('obIncomeAmount');
+    if (obInc && !obInc.value) obInc.value = formatNumberWithDots(localStorage.getItem('ob_inc') || 8000000);
+    const obObl = document.getElementById('obObligations');
+    if (obObl && !obObl.value) obObl.value = formatNumberWithDots(localStorage.getItem('ob_obl') || 3000000);
+    const obGoal = document.getElementById('obGoalAmount');
+    if (obGoal && !obGoal.value) obGoal.value = formatNumberWithDots(localStorage.getItem('ob_goal') || 15000000);
+    
+    const savedStep = Number(localStorage.getItem('zero_buy_onboard_step')) || 1;
+    setupOnboardStep(savedStep);
   }
 
   function setupOnboardStep(step) {
+    try { localStorage.setItem('zero_buy_onboard_step', step); } catch (_) {}
     const speechEl = document.getElementById('onboardSpeech');
     const badgeEl = document.getElementById('onboardStepBadge');
     if (badgeEl) badgeEl.innerText = `Langkah ${step}/4`;
@@ -280,7 +342,7 @@
   }
 
   function updateOnboardRatePreview() {
-    const amount = Number(document.getElementById('obIncomeAmount').value) || 8000000;
+    const amount = parseRawNumber(document.getElementById('obIncomeAmount').value) || 8000000;
     const hDay = Number(document.getElementById('obWorkHoursDay').value) || 8;
     const dWeek = Number(document.getElementById('obWorkDaysWeek').value) || 5;
 
@@ -292,10 +354,10 @@
   }
 
   function updateOnboardDisposablePreview() {
-    const amount = Number(document.getElementById('obIncomeAmount').value) || 8000000;
+    const amount = parseRawNumber(document.getElementById('obIncomeAmount').value) || 8000000;
     const hDay = Number(document.getElementById('obWorkHoursDay').value) || 8;
     const dWeek = Number(document.getElementById('obWorkDaysWeek').value) || 5;
-    const obligations = Number(document.getElementById('obObligations').value) || 0;
+    const obligations = parseRawNumber(document.getElementById('obObligations').value) || 0;
 
     const conv = ZeroBuyEngine.convertIncomeToHourlyRate(onboardFreq, amount, hDay, dWeek, obligations);
     const prev = document.getElementById('obCalcDisposablePreview');
@@ -305,15 +367,15 @@
   }
 
   async function finishOnboarding() {
-    const amount = Number(document.getElementById('obIncomeAmount').value) || 8000000;
+    const amount = parseRawNumber(document.getElementById('obIncomeAmount').value) || 8000000;
     const hDay = Number(document.getElementById('obWorkHoursDay').value) || 8;
     const dWeek = Number(document.getElementById('obWorkDaysWeek').value) || 5;
-    const obligations = Number(document.getElementById('obObligations').value) || 0;
+    const obligations = parseRawNumber(document.getElementById('obObligations').value) || 0;
 
     const conv = ZeroBuyEngine.convertIncomeToHourlyRate(onboardFreq, amount, hDay, dWeek, obligations);
 
     const goalName = document.getElementById('obGoalName').value.trim() || 'Pelunasan Utang Prioritas';
-    const goalAmount = Number(document.getElementById('obGoalAmount').value) || 15000000;
+    const goalAmount = parseRawNumber(document.getElementById('obGoalAmount').value) || 15000000;
     const goalCategory = document.getElementById('obGoalCategory').value || 'debt';
 
     // Simpan Target Finansial Pertama
@@ -342,8 +404,20 @@
     };
     await ZeroBuyDB.saveUserProfile(state.profile);
 
+    try {
+      localStorage.removeItem('zero_buy_onboard_step');
+      localStorage.removeItem('ob_inc');
+      localStorage.removeItem('ob_obl');
+      localStorage.removeItem('ob_goal');
+    } catch (_) {}
+
     dom.onboardingScreen.classList.remove('active');
     await loadUserData(state.user.id);
+
+    // Auto-sync ke Supabase Cloud
+    try {
+      await ZeroBuyDB.syncWithSupabase(state.user.id);
+    } catch (_) {}
 
     // Tampilkan panduan izin jika belum aktif di HP
     checkAndPromptSystemPermissions();
@@ -368,9 +442,55 @@
     state.syncedCart = await ZeroBuyDB.getSyncedCart(state.user.id);
   }
 
+  // --- DETEKSI & TAMPILKAN APLIKASI OLSHOP TERPASANG ---
+  function renderInstalledOlshops() {
+    const container = document.getElementById('installedOlshopsBar');
+    const chipsBox = document.getElementById('installedOlshopsChips');
+    if (!container || !chipsBox) return;
+
+    if (!window.PointZeroBridge || !window.PointZeroBridge.getInstalledOlshops) {
+      container.style.display = 'none';
+      return;
+    }
+
+    try {
+      const raw = window.PointZeroBridge.getInstalledOlshops();
+      const apps = JSON.parse(raw);
+      if (Array.isArray(apps) && apps.length > 0) {
+        container.style.display = 'block';
+        chipsBox.innerHTML = apps.map(app => {
+          let icon = Piko.icon('cart');
+          const nameLower = (app.name || '').toLowerCase();
+          if (nameLower.includes('tokopedia')) icon = Piko.icon('tokopedia');
+          else if (nameLower.includes('shopee')) icon = Piko.icon('shopee');
+          else if (nameLower.includes('tiktok')) icon = Piko.icon('tiktok');
+          else if (nameLower.includes('lazada')) icon = Piko.icon('lazada');
+
+          return `
+            <button type="button" class="btn-3d subtle" style="width:auto; padding:6px 12px; font-size:0.78rem; display:inline-flex; align-items:center; gap:6px;" onclick="window.openInstalledOlshop('${app.pkg}')">
+              ${icon}
+              <span>Buka ${escapeHtml(app.name)}</span>
+            </button>
+          `;
+        }).join('');
+      } else {
+        container.style.display = 'none';
+      }
+    } catch (e) {
+      container.style.display = 'none';
+    }
+  }
+
+  window.openInstalledOlshop = function(pkg) {
+    if (window.PointZeroBridge && window.PointZeroBridge.openOlshop) {
+      window.PointZeroBridge.openOlshop(pkg);
+    }
+  };
+
   // --- RENDER DAFTAR KERANJANG OLSHOP ---
   function renderCart() {
     if (!dom.cartItemsContainer) return;
+    renderInstalledOlshops();
 
     // Periksa status izin aksesibilitas
     const hasBridge = Boolean(window.PointZeroBridge);
@@ -447,7 +567,7 @@
     if (!item) return;
 
     dom.itemName.value = item.title;
-    dom.itemPrice.value = item.price;
+    dom.itemPrice.value = formatNumberWithDots(item.price);
     updateWorkHoursPill();
 
     // Beralih ke Tab Evaluasi dan Langsung Buka Kuis Full-Screen
@@ -457,7 +577,7 @@
 
   // --- REAKTIF BEBAN JAM KERJA DI FORM EVALUASI ---
   function updateWorkHoursPill() {
-    const price = Number(dom.itemPrice.value) || 0;
+    const price = parseRawNumber(dom.itemPrice.value) || 0;
     const rate = state.profile ? state.profile.disposable_hourly_rate : 28848;
 
     if (price >= 1000) {
@@ -484,7 +604,7 @@
   // --- FULL-SCREEN DEDICATED QUIZ SCREEN ---
   function startFullScreenQuiz() {
     const name = dom.itemName.value.trim();
-    const price = Number(dom.itemPrice.value) || 0;
+    const price = parseRawNumber(dom.itemPrice.value) || 0;
 
     if (!name) {
       alert('Tuliskan nama barang yang ingin kamu beli terlebih dahulu.');
@@ -1033,35 +1153,82 @@
     if (btnClosePermModal) btnClosePermModal.addEventListener('click', () => dom.permissionModal.classList.remove('active'));
     if (btnClosePermDone) btnClosePermDone.addEventListener('click', () => dom.permissionModal.classList.remove('active'));
 
-    // Native Permission Buttons
+    // Native Permission Buttons with Direct Feedback
     const btnReqNotif = document.getElementById('btnReqNotif');
     if (btnReqNotif) {
       btnReqNotif.addEventListener('click', () => {
-        if (window.PointZeroBridge) window.PointZeroBridge.requestNotificationPermission();
+        if (window.PointZeroBridge && window.PointZeroBridge.requestNotificationPermission) {
+          window.PointZeroBridge.requestNotificationPermission();
+          showToast('Membuka setelan izin notifikasi...');
+        } else {
+          alert('Fitur Native: Buka Pengaturan HP > Aplikasi > Zero Buy > Izinkan Notifikasi.');
+        }
+        setTimeout(checkAndPromptSystemPermissions, 1000);
       });
     }
     const btnReqBattery = document.getElementById('btnReqBattery');
     if (btnReqBattery) {
       btnReqBattery.addEventListener('click', () => {
-        if (window.PointZeroBridge) window.PointZeroBridge.openBatteryOptimizationSettings();
+        if (window.PointZeroBridge && window.PointZeroBridge.openBatteryOptimizationSettings) {
+          window.PointZeroBridge.openBatteryOptimizationSettings();
+          showToast('Membuka optimasi baterai (Pilih Tidak Ada Batasan)...');
+        } else {
+          alert('Fitur Native: Buka Pengaturan HP > Baterai > Hemat Baterai Aplikasi > Zero Buy > Pilih Tidak Ada Batasan.');
+        }
+        setTimeout(checkAndPromptSystemPermissions, 1000);
       });
     }
     const btnReqAccess = document.getElementById('btnReqAccess');
     if (btnReqAccess) {
       btnReqAccess.addEventListener('click', () => {
-        if (window.PointZeroBridge) window.PointZeroBridge.openAccessibilitySettings();
+        if (window.PointZeroBridge && window.PointZeroBridge.openAccessibilitySettings) {
+          window.PointZeroBridge.openAccessibilitySettings();
+          showToast('Membuka setelan Aksesibilitas Android...');
+        } else {
+          alert('Fitur Native: Buka Pengaturan HP > Aksesibilitas > Layanan Terunduh > Aktifkan Zero Buy.');
+        }
+        setTimeout(checkAndPromptSystemPermissions, 1000);
       });
     }
     if (dom.btnActivateCartReader) {
       dom.btnActivateCartReader.addEventListener('click', () => {
-        if (window.PointZeroBridge) window.PointZeroBridge.openAccessibilitySettings();
+        if (window.PointZeroBridge && window.PointZeroBridge.openAccessibilitySettings) {
+          window.PointZeroBridge.openAccessibilitySettings();
+          showToast('Membuka setelan Aksesibilitas Android...');
+        } else {
+          alert('Fitur Native: Buka Pengaturan HP > Aksesibilitas > Layanan Terunduh > Aktifkan Zero Buy.');
+        }
+        setTimeout(checkAndPromptSystemPermissions, 1000);
       });
     }
 
-    // Re-check permissions when user resumes application
-    window.addEventListener('focus', checkAndPromptSystemPermissions);
+    // Toggle Password Visibility Eye Icon
+    const btnToggleAuthPin = document.getElementById('btnToggleAuthPin');
+    const authPin = document.getElementById('authPin');
+    const iconEyeAuthPin = document.getElementById('iconEyeAuthPin');
+    if (btnToggleAuthPin && authPin) {
+      btnToggleAuthPin.addEventListener('click', () => {
+        const isPass = (authPin.type === 'password');
+        authPin.type = isPass ? 'text' : 'password';
+        if (iconEyeAuthPin) {
+          iconEyeAuthPin.innerHTML = isPass ? Piko.icon('eyeOff') : Piko.icon('eye');
+        }
+      });
+    }
+
+    // Re-check permissions and sync native cart when user resumes application
+    const onAppForegroundResume = async () => {
+      checkAndPromptSystemPermissions();
+      if (state.user && state.user.id) {
+        await syncNativeCartItems();
+        if (state.activeTab === 'viewCart') {
+          renderCart();
+        }
+      }
+    };
+    window.addEventListener('focus', onAppForegroundResume);
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) checkAndPromptSystemPermissions();
+      if (!document.hidden) onAppForegroundResume();
     });
 
     // Auth Screen Handlers
@@ -1166,6 +1333,15 @@
       });
     });
 
+    // Refresh Cart
+    const btnRefreshCart = document.getElementById('btnRefreshCart');
+    if (btnRefreshCart) {
+      btnRefreshCart.addEventListener('click', async () => {
+        await syncNativeCartItems();
+        renderCart();
+      });
+    }
+
     // Clear Cart
     if (dom.btnClearCart) {
       dom.btnClearCart.addEventListener('click', async () => {
@@ -1200,7 +1376,7 @@
     document.getElementById('btnCloseGoalModal').addEventListener('click', () => dom.goalModal.classList.remove('active'));
     document.getElementById('btnSaveGoal').addEventListener('click', async () => {
       const name = document.getElementById('goalName').value.trim();
-      const amount = Number(document.getElementById('goalAmount').value) || 0;
+      const amount = parseRawNumber(document.getElementById('goalAmount').value) || 0;
       const category = document.getElementById('goalCategory').value;
 
       if (!name || amount < 10000) {
@@ -1252,22 +1428,38 @@
     });
 
     // Modal Profil & Setelan
-    dom.btnOpenProfile.addEventListener('click', () => {
+    dom.btnOpenProfile.addEventListener('click', async () => {
       if (state.profile) {
         document.getElementById('profEmail').value = state.user.email || 'Mode Demo';
         document.getElementById('profFreq').value = state.profile.income_frequency || 'monthly';
-        document.getElementById('profAmount').value = state.profile.income_amount || 8000000;
-        document.getElementById('profObligations').value = state.profile.monthly_obligations || 0;
+        document.getElementById('profAmount').value = formatNumberWithDots(state.profile.income_amount || 8000000);
+        document.getElementById('profObligations').value = formatNumberWithDots(state.profile.monthly_obligations || 0);
         document.getElementById('profWorkHours').value = state.profile.work_hours_day || 8;
         document.getElementById('profWorkDays').value = state.profile.work_days_week || 5;
+      }
+      // Muat Konfigurasi Supabase Cloud
+      const cloudCfg = await ZeroBuyDB.getCloudConfig();
+      document.getElementById('profCloudUrl').value = cloudCfg.url || '';
+      document.getElementById('profCloudKey').value = cloudCfg.anon_key || '';
+      const badge = document.getElementById('cloudStatusBadge');
+      if (badge) {
+        if (cloudCfg.enabled && cloudCfg.last_synced) {
+          badge.innerText = 'Tersambung';
+          badge.style.background = 'var(--color-safe-bg)';
+          badge.style.color = 'var(--color-safe-dark)';
+        } else {
+          badge.innerText = 'Offline';
+          badge.style.background = 'var(--bg-elevated)';
+          badge.style.color = 'var(--text-muted)';
+        }
       }
       dom.profileModal.classList.add('active');
     });
     document.getElementById('btnCloseProfileModal').addEventListener('click', () => dom.profileModal.classList.remove('active'));
     document.getElementById('btnSaveProfileSettings').addEventListener('click', async () => {
       const freq = document.getElementById('profFreq').value;
-      const amount = Number(document.getElementById('profAmount').value) || 0;
-      const obligations = Number(document.getElementById('profObligations').value) || 0;
+      const amount = parseRawNumber(document.getElementById('profAmount').value) || 0;
+      const obligations = parseRawNumber(document.getElementById('profObligations').value) || 0;
       const hDay = Number(document.getElementById('profWorkHours').value) || 8;
       const dWeek = Number(document.getElementById('profWorkDays').value) || 5;
 
@@ -1288,6 +1480,43 @@
       dom.profileModal.classList.remove('active');
       alert('Perubahan profil dan tarif jam kerja berhasil disimpan.');
     });
+
+    // Supabase Cloud Sync Button
+    const btnSyncCloudNow = document.getElementById('btnSyncCloudNow');
+    if (btnSyncCloudNow) {
+      btnSyncCloudNow.addEventListener('click', async () => {
+        const url = document.getElementById('profCloudUrl').value.trim();
+        const key = document.getElementById('profCloudKey').value.trim();
+        const badge = document.getElementById('cloudStatusBadge');
+
+        if (!url || !key) {
+          return alert('Harap isi URL Project dan Anon Key Supabase terlebih dahulu.');
+        }
+
+        btnSyncCloudNow.disabled = true;
+        btnSyncCloudNow.innerText = 'Menyinkronkan ke Cloud...';
+
+        try {
+          const res = await ZeroBuyDB.syncWithSupabase(state.user.id, { url, anon_key: key });
+          alert(`Sinkronisasi Supabase Sukses!\n• Profil: Terhubung\n• Evaluasi: ${res.evalCount} barang\n• Target: ${res.goalCount} target`);
+          if (badge) {
+            badge.innerText = 'Tersambung';
+            badge.style.background = 'var(--color-safe-bg)';
+            badge.style.color = 'var(--color-safe-dark)';
+          }
+        } catch (err) {
+          alert('Gagal menyinkronkan ke Supabase: ' + err.message);
+          if (badge) {
+            badge.innerText = 'Gagal';
+            badge.style.background = 'var(--color-danger-bg)';
+            badge.style.color = 'var(--color-danger-dark)';
+          }
+        } finally {
+          btnSyncCloudNow.disabled = false;
+          btnSyncCloudNow.innerHTML = `${Piko.icon('sync')} <span>Tes & Sinkronkan Cloud Sekarang</span>`;
+        }
+      });
+    }
 
     document.getElementById('btnLogoutUser').addEventListener('click', () => {
       if (confirm('Keluar dari sesi akun ini?')) {
@@ -1323,6 +1552,22 @@
         }
       };
       reader.readAsText(file);
+    });
+
+    // Auto-refresh sinkronisasi keranjang & izin saat aplikasi kembali aktif (misal dari Tokopedia/Shopee)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        checkAndPromptSystemPermissions();
+        syncNativeCartItems().then(() => {
+          if (state.activeTab === 'viewCart') renderCart();
+        });
+      }
+    });
+
+    window.addEventListener('focus', () => {
+      syncNativeCartItems().then(() => {
+        if (state.activeTab === 'viewCart') renderCart();
+      });
     });
   }
 

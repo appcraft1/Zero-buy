@@ -442,9 +442,55 @@
     state.syncedCart = await ZeroBuyDB.getSyncedCart(state.user.id);
   }
 
+  // --- DETEKSI & TAMPILKAN APLIKASI OLSHOP TERPASANG ---
+  function renderInstalledOlshops() {
+    const container = document.getElementById('installedOlshopsBar');
+    const chipsBox = document.getElementById('installedOlshopsChips');
+    if (!container || !chipsBox) return;
+
+    if (!window.PointZeroBridge || !window.PointZeroBridge.getInstalledOlshops) {
+      container.style.display = 'none';
+      return;
+    }
+
+    try {
+      const raw = window.PointZeroBridge.getInstalledOlshops();
+      const apps = JSON.parse(raw);
+      if (Array.isArray(apps) && apps.length > 0) {
+        container.style.display = 'block';
+        chipsBox.innerHTML = apps.map(app => {
+          let icon = Piko.icon('cart');
+          const nameLower = (app.name || '').toLowerCase();
+          if (nameLower.includes('tokopedia')) icon = Piko.icon('tokopedia');
+          else if (nameLower.includes('shopee')) icon = Piko.icon('shopee');
+          else if (nameLower.includes('tiktok')) icon = Piko.icon('tiktok');
+          else if (nameLower.includes('lazada')) icon = Piko.icon('lazada');
+
+          return `
+            <button type="button" class="btn-3d subtle" style="width:auto; padding:6px 12px; font-size:0.78rem; display:inline-flex; align-items:center; gap:6px;" onclick="window.openInstalledOlshop('${app.pkg}')">
+              ${icon}
+              <span>Buka ${escapeHtml(app.name)}</span>
+            </button>
+          `;
+        }).join('');
+      } else {
+        container.style.display = 'none';
+      }
+    } catch (e) {
+      container.style.display = 'none';
+    }
+  }
+
+  window.openInstalledOlshop = function(pkg) {
+    if (window.PointZeroBridge && window.PointZeroBridge.openOlshop) {
+      window.PointZeroBridge.openOlshop(pkg);
+    }
+  };
+
   // --- RENDER DAFTAR KERANJANG OLSHOP ---
   function renderCart() {
     if (!dom.cartItemsContainer) return;
+    renderInstalledOlshops();
 
     // Periksa status izin aksesibilitas
     const hasBridge = Boolean(window.PointZeroBridge);
@@ -1170,10 +1216,19 @@
       });
     }
 
-    // Re-check permissions when user resumes application
-    window.addEventListener('focus', checkAndPromptSystemPermissions);
+    // Re-check permissions and sync native cart when user resumes application
+    const onAppForegroundResume = async () => {
+      checkAndPromptSystemPermissions();
+      if (state.user && state.user.id) {
+        await syncNativeCartItems();
+        if (state.activeTab === 'viewCart') {
+          renderCart();
+        }
+      }
+    };
+    window.addEventListener('focus', onAppForegroundResume);
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) checkAndPromptSystemPermissions();
+      if (!document.hidden) onAppForegroundResume();
     });
 
     // Auth Screen Handlers
@@ -1277,6 +1332,15 @@
         renderHistory();
       });
     });
+
+    // Refresh Cart
+    const btnRefreshCart = document.getElementById('btnRefreshCart');
+    if (btnRefreshCart) {
+      btnRefreshCart.addEventListener('click', async () => {
+        await syncNativeCartItems();
+        renderCart();
+      });
+    }
 
     // Clear Cart
     if (dom.btnClearCart) {
@@ -1488,6 +1552,22 @@
         }
       };
       reader.readAsText(file);
+    });
+
+    // Auto-refresh sinkronisasi keranjang & izin saat aplikasi kembali aktif (misal dari Tokopedia/Shopee)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        checkAndPromptSystemPermissions();
+        syncNativeCartItems().then(() => {
+          if (state.activeTab === 'viewCart') renderCart();
+        });
+      }
+    });
+
+    window.addEventListener('focus', () => {
+      syncNativeCartItems().then(() => {
+        if (state.activeTab === 'viewCart') renderCart();
+      });
     });
   }
 

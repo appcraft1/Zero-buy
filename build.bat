@@ -65,7 +65,7 @@ if not exist android (
 )
 
 :: 4. Generate Mipmap Icons & Bersihkan Legacy Assets
-echo [LANGKAH 3/5] Menyiapkan ikon native Android & membersihkan asset lama...
+echo [LANGKAH 3/5] Menyiapkan ikon native Android ^& membersihkan asset lama...
 if exist "android\app\src\main\res\drawable-v24" rmdir /s /q "android\app\src\main\res\drawable-v24" 2>nul
 if exist "android\app\src\main\res\drawable-anydpi-v24" rmdir /s /q "android\app\src\main\res\drawable-anydpi-v24" 2>nul
 if exist "android\app\src\main\res\drawable\ic_launcher_background.xml" del /f /q "android\app\src\main\res\drawable\ic_launcher_background.xml" 2>nul
@@ -97,13 +97,17 @@ if !errorlevel! neq 0 (
 :: 7. Kompilasi APK dengan Gradle
 echo [LANGKAH 5/5] Mengompilasi APK Debug (gradlew assembleDebug)...
 
-:: Bersihkan stale lock wrapper jika ada
+:: Bersihkan proses zombie java dan crash log jika ada
+echo [INFO] Membersihkan seluruh proses zombie Java di RAM...
+taskkill /F /IM java.exe /T 2>nul
+if exist "android\hs_err_pid*.log" del /f /q "android\hs_err_pid*.log" 2>nul
 for /d %%D in ("%USERPROFILE%\.gradle\wrapper\dists\gradle-8.11.1-all\*") do (
     if exist "%%D\*.lck" del /f /q "%%D\*.lck" 2>nul
 )
 
 cd android
-call gradlew.bat assembleDebug
+echo [INFO] Menjalankan kompilasi APK ultra-hemat RAM (--no-daemon --max-workers=1)...
+call gradlew.bat assembleDebug --no-daemon --max-workers=1
 set "GRADLE_EXIT=!errorlevel!"
 cd ..
 

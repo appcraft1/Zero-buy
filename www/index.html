@@ -48,8 +48,13 @@
       </div>
 
       <div class="form-group" style="text-align:left;">
-        <label class="form-label" for="authPin">PIN / Kata Sandi (4-6 Digit)</label>
-        <input type="password" class="form-input" id="authPin" placeholder="••••" maxlength="8">
+        <label class="form-label" for="authPin">PIN / Kata Sandi</label>
+        <div style="position:relative; display:flex; align-items:center;">
+          <input type="password" class="form-input" id="authPin" placeholder="Masukkan PIN atau kata sandi..." style="padding-right:44px;" autocomplete="current-password">
+          <button type="button" id="btnToggleAuthPin" title="Lihat Kata Sandi" style="position:absolute; right:8px; background:none; border:none; cursor:pointer; padding:6px; display:flex; align-items:center; justify-content:center; color:var(--text-secondary);">
+            <span id="iconEyeAuthPin"></span>
+          </button>
+        </div>
       </div>
 
       <button type="button" class="btn-3d" id="btnAuthLogin" style="margin-top:6px; margin-bottom:10px;">
@@ -141,7 +146,7 @@
           <label class="form-label" for="obIncomeAmount">Nominal Pendapatan</label>
           <div class="input-prefix-box">
             <span class="input-prefix">Rp</span>
-            <input type="number" class="form-input" id="obIncomeAmount" placeholder="8.000.000" min="10000" step="50000">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-input" id="obIncomeAmount" placeholder="8.000.000">
           </div>
         </div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
@@ -171,7 +176,7 @@
           <label class="form-label" for="obObligations">Cicilan Utang, Sewa & Pengeluaran Wajib (Bulanan)</label>
           <div class="input-prefix-box">
             <span class="input-prefix">Rp</span>
-            <input type="number" class="form-input" id="obObligations" placeholder="3.000.000" min="0" step="50000">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-input" id="obObligations" placeholder="3.000.000">
           </div>
           <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">
             Hanya sisa uang bebas yang dihitung untuk jam kerja evaluasi barang.
@@ -198,7 +203,7 @@
           <label class="form-label" for="obGoalAmount">Target Nominal (Rp)</label>
           <div class="input-prefix-box">
             <span class="input-prefix">Rp</span>
-            <input type="number" class="form-input" id="obGoalAmount" placeholder="15.000.000" value="15000000" min="100000">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-input" id="obGoalAmount" placeholder="15.000.000">
           </div>
         </div>
         <div class="form-group">
@@ -329,7 +334,7 @@
           <label class="form-label" for="itemPrice">Harga Barang (Rp)</label>
           <div class="input-prefix-box">
             <span class="input-prefix">Rp</span>
-            <input type="number" class="form-input" id="itemPrice" placeholder="450.000" min="1000" step="5000">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-input" id="itemPrice" placeholder="450.000">
           </div>
           <div class="work-hours-chip" id="workHoursPill">
             <span id="workHoursIcon"></span>
@@ -362,9 +367,22 @@
           <h2 style="font-family:var(--font-brand); font-size:1.25rem;">Keranjang Olshop</h2>
           <p style="font-size:0.8rem; color:var(--text-secondary);">Otomatis tertangkap saat membuka Shopee & Tokopedia.</p>
         </div>
-        <button type="button" class="btn-3d subtle" id="btnClearCart" style="width:auto; padding:6px 12px; font-size:0.8rem;">
-          Bersihkan
-        </button>
+        <div style="display:flex; gap:6px;">
+          <button type="button" class="btn-3d subtle" id="btnRefreshCart" style="width:auto; padding:6px 12px; font-size:0.8rem;">
+            Segarkan
+          </button>
+          <button type="button" class="btn-3d subtle" id="btnClearCart" style="width:auto; padding:6px 12px; font-size:0.8rem;">
+            Bersihkan
+          </button>
+        </div>
+      </div>
+
+      <!-- Online Shop Apps Detector & Quick Launcher -->
+      <div id="installedOlshopsBar" class="card" style="margin-bottom:14px; padding:12px; display:none; background:var(--bg-elevated);">
+        <div style="font-family:var(--font-brand); font-size:0.82rem; font-weight:700; color:var(--text-secondary); margin-bottom:8px;">
+          Buka Keranjang Olshop Terpasang di HP:
+        </div>
+        <div id="installedOlshopsChips" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
       </div>
 
       <div id="cartAccessibilityNotice" class="card" style="display:none; background:var(--piko-cream); border-color:rgba(234,88,12,0.3); padding:14px; margin-bottom:14px;">
@@ -780,7 +798,7 @@
         <label class="form-label" for="goalAmount">Nominal Target (Rp)</label>
         <div class="input-prefix-box">
           <span class="input-prefix">Rp</span>
-          <input type="number" class="form-input" id="goalAmount" placeholder="20.000.000">
+          <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-input" id="goalAmount" placeholder="20.000.000">
         </div>
       </div>
 
@@ -829,7 +847,7 @@
         <label class="form-label" for="profAmount">Nominal Pendapatan</label>
         <div class="input-prefix-box">
           <span class="input-prefix">Rp</span>
-          <input type="number" class="form-input" id="profAmount">
+          <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-input" id="profAmount">
         </div>
       </div>
 
@@ -837,7 +855,7 @@
         <label class="form-label" for="profObligations">Kewajiban / Cicilan Tetap Bulanan</label>
         <div class="input-prefix-box">
           <span class="input-prefix">Rp</span>
-          <input type="number" class="form-input" id="profObligations">
+          <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-input" id="profObligations">
         </div>
       </div>
 
@@ -864,6 +882,32 @@
           Pulihkan Data
         </button>
         <input type="file" id="backupFileInput" style="display:none;" accept=".json">
+      </div>
+
+      <!-- Supabase Cloud Sync Settings -->
+      <div style="border-top:1px solid var(--border-subtle); margin-top:14px; padding-top:14px; text-align:left;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+          <div style="display:flex; align-items:center; gap:6px; font-family:var(--font-brand); font-weight:700; font-size:0.95rem; color:var(--text-primary);">
+            <span id="iconCloudBox"></span>
+            <span>Koneksi Supabase Cloud (Multi-User)</span>
+          </div>
+          <span class="status-pill" id="cloudStatusBadge" style="background:var(--bg-elevated); color:var(--text-muted); font-size:0.7rem;">Offline</span>
+        </div>
+        <p style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:10px;">
+          Sinkronkan data evaluasi & target ke database Supabase pribadimu dengan Row Level Security (RLS).
+        </p>
+        <div class="form-group">
+          <label class="form-label" for="profCloudUrl">Project URL (Supabase)</label>
+          <input type="text" class="form-input" id="profCloudUrl" value="https://alahdaunttpsmvozbwfo.supabase.co" placeholder="https://xyzcompany.supabase.co" autocomplete="off" style="font-family:var(--font-mono); font-size:0.8rem;">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="profCloudKey">Anon / Public Key</label>
+          <input type="password" class="form-input" id="profCloudKey" value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsYWhkYXVudHRwc212b3pid2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI5OTA1NTQsImV4cCI6MjEwODU2NjU1NH0.JFXBwH1sj0QYpix3YhVdhEZq79Ysa-ZlkJ-nz5jX7H8" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..." autocomplete="off" style="font-family:var(--font-mono); font-size:0.8rem;">
+        </div>
+        <button type="button" class="btn-3d subtle" id="btnSyncCloudNow" style="width:100%; font-size:0.82rem; margin-bottom:14px;">
+          <span id="iconSyncBtnBox"></span>
+          <span>Tes & Sinkronkan Cloud Sekarang</span>
+        </button>
       </div>
 
       <button type="button" class="btn-3d danger" id="btnLogoutUser" style="width:100%; font-size:0.85rem;">

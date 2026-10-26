@@ -544,24 +544,32 @@
     return true;
   }
 
-  // --- CLOUD CONFIG (SUPABASE REST) ---
+  // --- CLOUD CONFIG & SUPABASE REST MULTI-USER SYNC ---
+  const DEFAULT_SUPABASE_URL = 'https://alahdaunttpsmvozbwfo.supabase.co';
+  const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsYWhkYXVudHRwc212b3pid2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI5OTA1NTQsImV4cCI6MjEwODU2NjU1NH0.JFXBwH1sj0QYpix3YhVdhEZq79Ysa-ZlkJ-nz5jX7H8';
+
   async function getCloudConfig() {
     const db = await openDatabase();
     return new Promise((resolve) => {
       const tx = db.transaction([STORE_CONFIG], 'readonly');
       const store = tx.objectStore(STORE_CONFIG);
       const req = store.get('supabase');
-      req.onsuccess = () => resolve(req.result || {
-        key: 'supabase',
-        url: 'https://pointzero.supabase.co',
-        anon_key: '',
-        enabled: false
-      });
+      req.onsuccess = () => {
+        const res = req.result;
+        resolve({
+          key: 'supabase',
+          url: (res && res.url) ? res.url : DEFAULT_SUPABASE_URL,
+          anon_key: (res && res.anon_key) ? res.anon_key : DEFAULT_SUPABASE_KEY,
+          enabled: res ? res.enabled : true,
+          last_synced: res ? res.last_synced : null
+        });
+      };
       req.onerror = () => resolve({
         key: 'supabase',
-        url: 'https://pointzero.supabase.co',
-        anon_key: '',
-        enabled: false
+        url: DEFAULT_SUPABASE_URL,
+        anon_key: DEFAULT_SUPABASE_KEY,
+        enabled: true,
+        last_synced: null
       });
     });
   }
@@ -576,6 +584,120 @@
       req.onsuccess = () => resolve(config);
       req.onerror = () => reject(req.error);
     });
+  }
+
+  async function syncWithSupabase(userId, customConfig) {
+    const config = customConfig || await getCloudConfig();
+    let url = (config.url || DEFAULT_SUPABASE_URL).trim().replace(/\/+$/, '');
+    url = url.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '');
+    const key = (config.anon_key || DEFAULT_SUPABASE_KEY).trim();
+
+    if (!url || !key) {
+      throw new Error('URL dan Anon Key Supabase harus diisi.');
+    }
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'apikey': key,
+      'Authorization': `Bearer ${key}`,
+      'x-user-id': userId,
+      'Prefer': 'return=minimal'
+    };
+
+    // 1. Sync User Profile
+    const profile = await getUserProfile(userId);
+    if (profile) {
+      const pRes = await fetch(`${url}/rest/v1/user_profile`, {
+        method: 'POST',
+        headers: { ...headers, 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify({
+          user_id: userId,
+          income_frequency: profile.income_frequency || 'monthly',
+          income_amount: profile.income_amount || 0,
+          monthly_obligations: profile.monthly_obligations || 0,
+          work_hours_day: profile.work_hours_day || 8,
+          work_days_week: profile.work_days_week || 5,
+          hourly_rate: profile.hourly_rate || 0,
+          disposable_hourly_rate: profile.disposable_hourly_rate || 0,
+          onboarding_completed: Boolean(profile.onboarding_completed),
+          theme: profile.theme || 'light',
+          updated_at: new Date().toISOString()
+        })
+      });
+      if (!pRes.ok) {
+        const errText = await pRes.text();
+        throw new Error(`Gagal sync profil ke Supabase: ${pRes.status} ${errText}`);
+      }
+    }
+
+    // 2. Sync Evaluations
+    const evals = await getEvaluations(userId);
+    if (evals.length > 0) {
+      const cleanEvals = evals.map(e => ({
+        user_id: userId,
+        item_name: e.item_name,
+        item_price: e.item_price,
+        category_id: String(e.category_id || ''),
+        work_hours: e.work_hours || 0,
+        score: e.score || 0,
+        status: e.status || 'cooling',
+        reason: e.reason || '',
+        cooling_hours: e.cooling_hours || 48,
+        cooling_until: e.cooling_until || null,
+        is_saved: Boolean(e.is_saved),
+        is_bought: Boolean(e.is_bought),
+        saved_at: e.saved_at || null,
+        bought_at: e.bought_at || null,
+        created_at: e.created_at || new Date().toISOString()
+      }));
+
+      const eRes = await fetch(`${url}/rest/v1/evaluations`, {
+        method: 'POST',
+        headers: { ...headers, 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify(cleanEvals)
+      });
+      if (!eRes.ok) {
+        const errText = await eRes.text();
+        throw new Error(`Gagal sync evaluasi ke Supabase: ${eRes.status} ${errText}`);
+      }
+    }
+
+    // 3. Sync Financial Goals
+    const goals = await getGoals(userId);
+    if (goals.length > 0) {
+      const cleanGoals = goals.map(g => ({
+        user_id: userId,
+        name: g.name,
+        target_amount: g.target_amount || 0,
+        current_amount: g.current_amount || 0,
+        category: g.category || 'savings',
+        is_primary: Boolean(g.is_primary),
+        created_at: g.created_at || new Date().toISOString()
+      }));
+
+      const gRes = await fetch(`${url}/rest/v1/financial_goals`, {
+        method: 'POST',
+        headers: { ...headers, 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify(cleanGoals)
+      });
+      if (!gRes.ok) {
+        const errText = await gRes.text();
+        throw new Error(`Gagal sync target finansial: ${gRes.status} ${errText}`);
+      }
+    }
+
+    // Simpan status sukses
+    config.enabled = true;
+    config.last_synced = new Date().toISOString();
+    await saveCloudConfig(config);
+
+    return {
+      success: true,
+      profileSynced: Boolean(profile),
+      evalCount: evals.length,
+      goalCount: goals.length,
+      timestamp: config.last_synced
+    };
   }
 
   // Ekspor API Database Global
@@ -606,7 +728,8 @@
     exportBackupJson,
     importBackupJson,
     getCloudConfig,
-    saveCloudConfig
+    saveCloudConfig,
+    syncWithSupabase
   };
 
 })(window);

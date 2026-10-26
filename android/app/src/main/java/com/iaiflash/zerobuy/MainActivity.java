@@ -20,6 +20,8 @@ import com.getcapacitor.BridgeActivity;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class MainActivity extends BridgeActivity {
@@ -36,13 +38,13 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onStart() {
+    public void onStart() {
         super.onStart();
         setupBridgeInterface();
     }
 
     @Override
-    protected void onResume() {
+    public void onResume() {
         super.onResume();
         setupBridgeInterface();
     }
@@ -299,20 +301,20 @@ public class MainActivity extends BridgeActivity {
 
         @JavascriptInterface
         public String getSyncedCartItems() {
-            SharedPreferences prefs = context.getSharedPreferences(PREF_CART, Context.MODE_PRIVATE);
+            SharedPreferences prefs = context.getApplicationContext().getSharedPreferences(PREF_CART, Context.MODE_PRIVATE);
             return prefs.getString(KEY_ITEMS, "[]");
         }
 
         @JavascriptInterface
         public void clearSyncedCartItems() {
-            SharedPreferences prefs = context.getSharedPreferences(PREF_CART, Context.MODE_PRIVATE);
+            SharedPreferences prefs = context.getApplicationContext().getSharedPreferences(PREF_CART, Context.MODE_PRIVATE);
             prefs.edit().putString(KEY_ITEMS, "[]").apply();
         }
 
         @JavascriptInterface
         public void removeSyncedCartItem(String id) {
             if (id == null) return;
-            SharedPreferences prefs = context.getSharedPreferences(PREF_CART, Context.MODE_PRIVATE);
+            SharedPreferences prefs = context.getApplicationContext().getSharedPreferences(PREF_CART, Context.MODE_PRIVATE);
             String rawJson = prefs.getString(KEY_ITEMS, "[]");
             try {
                 JSONArray arr = new JSONArray(rawJson);
@@ -325,6 +327,51 @@ public class MainActivity extends BridgeActivity {
                 }
                 prefs.edit().putString(KEY_ITEMS, newArr.toString()).apply();
             } catch (Exception ignored) {}
+        }
+
+        @JavascriptInterface
+        public String getInstalledOlshops() {
+            JSONArray arr = new JSONArray();
+            PackageManager pm = context.getPackageManager();
+            String[][] apps = {
+                {"com.tokopedia.tkpd", "Tokopedia"},
+                {"com.shopee.id", "Shopee"},
+                {"com.zhiliaoapp.musically", "TikTok Shop"},
+                {"com.ss.android.ugc.trill", "TikTok Shop"},
+                {"com.lazada.android", "Lazada"},
+                {"com.bukalapak.android", "Bukalapak"},
+                {"com.blibli.mobile.android", "Blibli"}
+            };
+            Set<String> addedNames = new HashSet<>();
+            for (String[] app : apps) {
+                try {
+                    pm.getPackageInfo(app[0], 0);
+                    if (!addedNames.contains(app[1])) {
+                        addedNames.add(app[1]);
+                        JSONObject obj = new JSONObject();
+                        obj.put("pkg", app[0]);
+                        obj.put("name", app[1]);
+                        arr.put(obj);
+                    }
+                } catch (PackageManager.NameNotFoundException ignored) {}
+            }
+            return arr.toString();
+        }
+
+        @JavascriptInterface
+        public void openOlshop(String pkg) {
+            MainActivity.this.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        Intent intent = context.getPackageManager().getLaunchIntentForPackage(pkg);
+                        if (intent != null) {
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            context.startActivity(intent);
+                        }
+                    } catch (Exception ignored) {}
+                }
+            });
         }
     }
 }
