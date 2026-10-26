@@ -348,10 +348,12 @@ public class MainActivity extends BridgeActivity {
                     pm.getPackageInfo(app[0], 0);
                     if (!addedNames.contains(app[1])) {
                         addedNames.add(app[1]);
-                        JSONObject obj = new JSONObject();
-                        obj.put("pkg", app[0]);
-                        obj.put("name", app[1]);
-                        arr.put(obj);
+                        try {
+                            JSONObject obj = new JSONObject();
+                            obj.put("pkg", app[0]);
+                            obj.put("name", app[1]);
+                            arr.put(obj);
+                        } catch (Exception ignored) {}
                     }
                 } catch (PackageManager.NameNotFoundException ignored) {}
             }

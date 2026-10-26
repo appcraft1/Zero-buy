@@ -52,6 +52,15 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/accessibility_service_config" />
         </service>
+
+        <!-- Receiver Pengendali Notifikasi Cepat Aksesibilitas & m-Banking -->
+        <receiver
+            android:name=".AccessibilityControlReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.iaiflash.zerobuy.ACTION_DISABLE_ACCESSIBILITY" />
+            </intent-filter>
+        </receiver>
     </application>
 
     <!-- Permissions -->

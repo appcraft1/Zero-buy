@@ -2,16 +2,24 @@ package com.iaiflash.zerobuy;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.AccessibilityServiceInfo;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
 import android.widget.Toast;
+
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -28,6 +36,12 @@ public class CartAccessibilityService extends AccessibilityService {
     private static final String PREF_NAME = "SyncedOlshopCart";
     private static final String KEY_ITEMS = "captured_items";
 
+    private static final String CHANNEL_ID = "zero_guard_channel";
+    private static final int NOTIF_ID_ACTIVE = 1001;
+    private static final int NOTIF_ID_DISABLED = 1002;
+
+    private static CartAccessibilityService instance;
+
     // Regex 1: Matches strings with Rp or IDR and digits
     private static final Pattern PRICE_WITH_SYMBOL_PATTERN = Pattern.compile(
         "(?:Rp|IDR)\\.?\\s*([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})?|[0-9]{4,10})",
@@ -41,9 +55,14 @@ public class CartAccessibilityService extends AccessibilityService {
 
     private long lastProcessTime = 0;
 
+    public static CartAccessibilityService getInstance() {
+        return instance;
+    }
+
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
+        instance = this;
         try {
             AccessibilityServiceInfo info = getServiceInfo();
             if (info == null) info = new AccessibilityServiceInfo();
@@ -58,12 +77,51 @@ public class CartAccessibilityService extends AccessibilityService {
         } catch (Exception e) {
             Log.w(TAG, "Configuring dynamic accessibility service info: " + e.getMessage());
         }
-        Log.d(TAG, "Zero Buy Cart Reader terhubung dan aktif (Deep Tree Harvester mode).");
+
+        // Tampilkan notifikasi status bar penjaga aktif dengan tombol matikan cepat
+        showActiveGuardNotification();
+        try {
+            NotificationManagerCompat.from(this).cancel(NOTIF_ID_DISABLED);
+        } catch (Exception ignored) {}
+
+        Log.d(TAG, "Zero Buy Cart Reader terhubung dan aktif (Penjaga Dompet ON).");
+    }
+
+    @Override
+    public boolean onUnbind(Intent intent) {
+        instance = null;
+        try {
+            NotificationManagerCompat.from(this).cancel(NOTIF_ID_ACTIVE);
+        } catch (Exception ignored) {}
+        return super.onUnbind(intent);
+    }
+
+    @Override
+    public void onDestroy() {
+        instance = null;
+        try {
+            NotificationManagerCompat.from(this).cancel(NOTIF_ID_ACTIVE);
+        } catch (Exception ignored) {}
+        super.onDestroy();
     }
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
         if (event == null) return;
+
+        CharSequence eventPkg = event.getPackageName();
+        String pkgStr = (eventPkg != null) ? eventPkg.toString().toLowerCase() : "";
+
+        // =====================================================================
+        // 1. CEK KHUSUS M-BANKING (myBCA, BCA Mobile, Livin, BRImo, dll)
+        // Jika terdeteksi, nonaktifkan otomatis agar m-Banking TIDAK memblokir transaksi!
+        // =====================================================================
+        String bankName = identifyBankingApp(pkgStr);
+        if (bankName != null) {
+            Log.i(TAG, "Aplikasi m-Banking terdeteksi: " + bankName + ". Menonaktifkan aksesibilitas demi keamanan.");
+            handleBankingAppDetected(bankName);
+            return;
+        }
 
         // Throttling 500ms agar tetap responsif saat scroll tanpa membebani CPU
         long now = System.currentTimeMillis();
@@ -71,15 +129,22 @@ public class CartAccessibilityService extends AccessibilityService {
         lastProcessTime = now;
 
         // Identifikasi platform e-commerce (Tokopedia, Shopee, TikTok Shop, Lazada, Bukalapak, Blibli)
-        CharSequence eventPkg = event.getPackageName();
-        String platform = (eventPkg != null) ? identifyPlatform(eventPkg.toString().toLowerCase()) : null;
+        String platform = identifyPlatform(pkgStr);
 
         if (platform == null) {
             AccessibilityNodeInfo activeRoot = getRootInActiveWindow();
             if (activeRoot != null) {
                 CharSequence rootPkg = activeRoot.getPackageName();
                 if (rootPkg != null) {
-                    platform = identifyPlatform(rootPkg.toString().toLowerCase());
+                    String rPkgStr = rootPkg.toString().toLowerCase();
+                    // Cek lagi apakah root window adalah m-Banking
+                    String bankNameRoot = identifyBankingApp(rPkgStr);
+                    if (bankNameRoot != null) {
+                        activeRoot.recycle();
+                        handleBankingAppDetected(bankNameRoot);
+                        return;
+                    }
+                    platform = identifyPlatform(rPkgStr);
                 }
                 activeRoot.recycle();
             }
@@ -122,6 +187,7 @@ public class CartAccessibilityService extends AccessibilityService {
             }
 
             if (!flatScreenTexts.isEmpty()) {
+                // Verifikasi Cart Screen Fingerprint (Hanya memproses jika benar-benar di halaman Keranjang)
                 if (isCartScreen(flatScreenTexts, platform)) {
                     parseAndSaveItems(flatScreenTexts, platform);
                 } else {
@@ -137,6 +203,164 @@ public class CartAccessibilityService extends AccessibilityService {
                 } catch (Exception ignored) {}
             }
         }
+    }
+
+    /**
+     * Deteksi aplikasi perbankan Indonesia (m-Banking)
+     */
+    private String identifyBankingApp(String pkg) {
+        if (pkg == null || pkg.isEmpty()) return null;
+        String p = pkg.toLowerCase();
+        if (p.contains("com.bca")) return "myBCA / BCA Mobile";
+        if (p.contains("bankmandiri")) return "Livin' by Mandiri";
+        if (p.contains("brimo")) return "BRImo";
+        if (p.contains("bni")) return "BNI Mobile";
+        if (p.contains("bsi.mobile")) return "BSI Mobile";
+        if (p.contains("btpn.sinaya")) return "Jenius";
+        if (p.contains("cimbniaga")) return "OCTO Mobile";
+        if (p.contains("seabank")) return "SeaBank";
+        if (p.contains("bankneo")) return "Neobank";
+        if (p.contains("id.dana")) return "DANA";
+        if (p.contains("ovo.id")) return "OVO";
+        return null;
+    }
+
+    /**
+     * Mematikan layanan otomatis saat aplikasi m-Banking dibuka, lalu memunculkan notifikasi pemulihan
+     */
+    private void handleBankingAppDetected(String bankName) {
+        showDisabledNotification("Dinonaktifkan Otomatis untuk " + bankName);
+
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Toast.makeText(getApplicationContext(),
+                        "Zero Buy dinonaktifkan otomatis agar transaksi " + bankName + " aman.",
+                        Toast.LENGTH_LONG).show();
+                } catch (Exception ignored) {}
+            }
+        });
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            disableSelf();
+        }
+    }
+
+    /**
+     * Mematikan layanan via tombol di notifikasi status bar
+     */
+    public void manualDisableFromNotification() {
+        showDisabledNotification("Dimatikan dari Notifikasi");
+
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Toast.makeText(getApplicationContext(),
+                        "Zero Buy dinonaktifkan untuk transaksi m-Banking.",
+                        Toast.LENGTH_SHORT).show();
+                } catch (Exception ignored) {}
+            }
+        });
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            disableSelf();
+        }
+    }
+
+    // =========================================================================
+    // SISTEM NOTIFIKASI PENGENDALI STATUS BAR (ON / OFF SWITCHER)
+    // =========================================================================
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                CHANNEL_ID,
+                "Pengendali Aksesibilitas & m-Banking",
+                NotificationManager.IMPORTANCE_LOW
+            );
+            channel.setDescription("Notifikasi status pengendali aksesibilitas Zero Buy dan keamanan m-Banking");
+            NotificationManager nm = getSystemService(NotificationManager.class);
+            if (nm != null) {
+                nm.createNotificationChannel(channel);
+            }
+        }
+    }
+
+    private void showActiveGuardNotification() {
+        createNotificationChannel();
+
+        Intent openSettingsIntent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+        openSettingsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= PendingIntent.FLAG_IMMUTABLE;
+        }
+
+        PendingIntent pendingOpen = PendingIntent.getActivity(this, 0, openSettingsIntent, flags);
+
+        // Action Broadcast: Matikan layanan
+        Intent disableIntent = new Intent(AccessibilityControlReceiver.ACTION_DISABLE_ACCESSIBILITY);
+        PendingIntent pendingDisable = PendingIntent.getBroadcast(this, 1, disableIntent, flags);
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle("Zero Buy: Penjaga Dompet Aktif")
+            .setContentText("Memantau Shopee & Tokopedia. Mau buka m-Banking?")
+            .setContentIntent(pendingOpen)
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .addAction(android.R.drawable.ic_lock_power_off, "Matikan untuk m-Banking", pendingDisable);
+
+        try {
+            NotificationManagerCompat.from(this).notify(NOTIF_ID_ACTIVE, builder.build());
+        } catch (Exception ignored) {}
+    }
+
+    public void showDisabledNotification(String reason) {
+        createNotificationChannel();
+
+        try {
+            NotificationManagerCompat.from(this).cancel(NOTIF_ID_ACTIVE);
+        } catch (Exception ignored) {}
+
+        Intent openSettingsIntent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+        openSettingsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= PendingIntent.FLAG_IMMUTABLE;
+        }
+
+        PendingIntent pendingOpen = PendingIntent.getActivity(this, 2, openSettingsIntent, flags);
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle("Zero Buy: Siaga (" + reason + ")")
+            .setContentText("Aksesibilitas dimatikan. Ketuk di sini untuk aktifkan kembali.")
+            .setContentIntent(pendingOpen)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .addAction(android.R.drawable.ic_menu_rotate, "Aktifkan Kembali", pendingOpen);
+
+        try {
+            NotificationManagerCompat.from(this).notify(NOTIF_ID_DISABLED, builder.build());
+        } catch (Exception ignored) {}
+    }
+
+    // =========================================================================
+    // CART HARVESTER & RECOGNITION ENGINE
+    // =========================================================================
+
+    private String identifyPlatform(String pkg) {
+        if (pkg == null) return null;
+        if (pkg.contains("tokopedia")) return "Tokopedia";
+        if (pkg.contains("shopee")) return "Shopee";
+        if (pkg.contains("tiktok") || pkg.contains("trill") || pkg.contains("musically")) return "TikTok Shop";
+        if (pkg.contains("lazada")) return "Lazada";
+        if (pkg.contains("bukalapak")) return "Bukalapak";
+        if (pkg.contains("blibli")) return "Blibli";
+        return null;
     }
 
     /**
@@ -161,7 +385,6 @@ public class CartAccessibilityService extends AccessibilityService {
             }
         }
 
-        // Jika tidak di 15 pertama, cari teks persis di seluruh layar
         if (!hasCartHeader) {
             for (String t : flatTexts) {
                 String lower = t.toLowerCase();
@@ -186,17 +409,6 @@ public class CartAccessibilityService extends AccessibilityService {
         }
 
         return hasCartHeader && hasCartAction;
-    }
-
-    private String identifyPlatform(String pkg) {
-        if (pkg == null) return null;
-        if (pkg.contains("tokopedia")) return "Tokopedia";
-        if (pkg.contains("shopee")) return "Shopee";
-        if (pkg.contains("tiktok") || pkg.contains("trill") || pkg.contains("musically")) return "TikTok Shop";
-        if (pkg.contains("lazada")) return "Lazada";
-        if (pkg.contains("bukalapak")) return "Bukalapak";
-        if (pkg.contains("blibli")) return "Blibli";
-        return null;
     }
 
     /**
@@ -262,8 +474,6 @@ public class CartAccessibilityService extends AccessibilityService {
             if (matcher.find()) {
                 long price = parsePrice(matcher.group(1));
                 if (price >= 5000 && price <= 1000000000L) {
-                    // Subkasus 1A: 1 string panjang (seperti contentDescription Tokopedia)
-                    // berisi nama produk sekaligus harga Rp...
                     int priceStart = matcher.start();
                     String beforeInSameText = text.substring(0, priceStart).trim();
                     String cleanTitle = cleanCandidateTitle(beforeInSameText);
@@ -277,7 +487,6 @@ public class CartAccessibilityService extends AccessibilityService {
                         continue;
                     }
 
-                    // Subkasus 1B: Nama produk ada di node sebelumnya dalam flatTexts
                     String titleFromPrev = findPrecedingTitle(texts, i);
                     if (isValidProductTitle(titleFromPrev)) {
                         String lowerKey = titleFromPrev.toLowerCase();
@@ -288,7 +497,6 @@ public class CartAccessibilityService extends AccessibilityService {
                         continue;
                     }
 
-                    // Subkasus 1C: Fallback jika nama produk berada tepat setelah harga
                     String titleFromNext = findSucceedingTitle(texts, i);
                     if (isValidProductTitle(titleFromNext)) {
                         String lowerKey = titleFromNext.toLowerCase();
@@ -338,7 +546,6 @@ public class CartAccessibilityService extends AccessibilityService {
 
         int newItemsCount = 0;
         for (ExtractedItem extracted : foundThisPass) {
-            // Cek apakah produk sudah ada di daftar
             boolean exists = false;
             for (int j = 0; j < cartArray.length(); j++) {
                 try {
@@ -360,7 +567,6 @@ public class CartAccessibilityService extends AccessibilityService {
                     item.put("platform", platform);
                     item.put("timestamp", System.currentTimeMillis());
 
-                    // Sisipkan di posisi terdepan (maksimal 30 barang)
                     JSONArray newArray = new JSONArray();
                     newArray.put(item);
                     for (int k = 0; k < cartArray.length() && k < 29; k++) {
@@ -376,7 +582,6 @@ public class CartAccessibilityService extends AccessibilityService {
             prefs.edit().putString(KEY_ITEMS, cartArray.toString()).apply();
             Log.d(TAG, "Berhasil menyadap " + newItemsCount + " barang baru dari " + platform);
 
-            // Indikator visual real-time Toast di layar HP
             final int count = newItemsCount;
             final String plat = platform;
             new Handler(Looper.getMainLooper()).post(new Runnable() {
@@ -423,7 +628,6 @@ public class CartAccessibilityService extends AccessibilityService {
         if (s == null) return "";
         String title = s.trim();
 
-        // Bersihkan prefiks deskriptif
         String lower = title.toLowerCase();
         if (lower.startsWith("produk:") || lower.startsWith("produk ")) {
             title = title.substring(title.indexOf(" ") + 1).trim();
@@ -435,7 +639,6 @@ public class CartAccessibilityService extends AccessibilityService {
             title = title.substring(title.indexOf(":") + 1).trim();
         }
 
-        // Hapus akhiran ", harga", ": harga", "- harga", " rp"
         String lowerEnd = title.toLowerCase();
         if (lowerEnd.endsWith("harga") || lowerEnd.endsWith("harga:") || lowerEnd.endsWith("rp")) {
             int lastSpace = title.lastIndexOf(" ");
@@ -444,7 +647,6 @@ public class CartAccessibilityService extends AccessibilityService {
             }
         }
 
-        // Hapus tanda baca pembuka & penutup
         title = title.replaceAll("^[\\-\\,\\.\\:\\;\\|\\s\\\"\\'\\“\\”\\[\\]\\(\\)\\{\\}]+", "");
         title = title.replaceAll("[\\-\\,\\.\\:\\;\\|\\s\\\"\\'\\“\\”\\[\\]\\(\\)\\{\\}]+$", "");
         return title.trim();
@@ -455,16 +657,12 @@ public class CartAccessibilityService extends AccessibilityService {
         String title = s.trim();
         if (title.length() < 5 || title.length() > 180) return false;
 
-        // Tidak boleh merupakan atau mengandung pola harga
         if (PRICE_WITH_SYMBOL_PATTERN.matcher(title).find()) return false;
         if (PURE_FORMATTED_PRICE_PATTERN.matcher(title).matches()) return false;
-
-        // Tidak boleh hanya berisi angka dan tanda baca
         if (title.matches("^[0-9\\s\\.\\,\\-\\+\\%\\/]+$")) return false;
 
         String lower = title.toLowerCase();
 
-        // Blacklist kata-kata navigasi, tombol, kupon, checkout, status toko
         String[] blacklist = {
             "gratis ongkir", "voucher", "cashback", "diskon", "promo", "hemat",
             "pilih variasi", "ubah variasi", "variasi", "warna", "ukuran",
@@ -485,7 +683,6 @@ public class CartAccessibilityService extends AccessibilityService {
             }
         }
 
-        // Reject kata pendek tombol
         if (lower.equals("ok") || lower.equals("ya") || lower.equals("tidak") || lower.equals("batal")
             || lower.equals("simpan") || lower.equals("lanjut") || lower.equals("bayar")) {
             return false;
