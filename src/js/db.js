@@ -545,24 +545,30 @@
   }
 
   // --- CLOUD CONFIG & SUPABASE REST MULTI-USER SYNC ---
+  const DEFAULT_SUPABASE_URL = 'https://alahdaunttpsmvozbwfo.supabase.co';
+  const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsYWhkYXVudHRwc212b3pid2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI5OTA1NTQsImV4cCI6MjEwODU2NjU1NH0.JFXBwH1sj0QYpix3YhVdhEZq79Ysa-ZlkJ-nz5jX7H8';
+
   async function getCloudConfig() {
     const db = await openDatabase();
     return new Promise((resolve) => {
       const tx = db.transaction([STORE_CONFIG], 'readonly');
       const store = tx.objectStore(STORE_CONFIG);
       const req = store.get('supabase');
-      req.onsuccess = () => resolve(req.result || {
-        key: 'supabase',
-        url: '',
-        anon_key: '',
-        enabled: false,
-        last_synced: null
-      });
+      req.onsuccess = () => {
+        const res = req.result;
+        resolve({
+          key: 'supabase',
+          url: (res && res.url) ? res.url : DEFAULT_SUPABASE_URL,
+          anon_key: (res && res.anon_key) ? res.anon_key : DEFAULT_SUPABASE_KEY,
+          enabled: res ? res.enabled : true,
+          last_synced: res ? res.last_synced : null
+        });
+      };
       req.onerror = () => resolve({
         key: 'supabase',
-        url: '',
-        anon_key: '',
-        enabled: false,
+        url: DEFAULT_SUPABASE_URL,
+        anon_key: DEFAULT_SUPABASE_KEY,
+        enabled: true,
         last_synced: null
       });
     });
@@ -582,8 +588,9 @@
 
   async function syncWithSupabase(userId, customConfig) {
     const config = customConfig || await getCloudConfig();
-    const url = (config.url || '').trim().replace(/\/+$/, '');
-    const key = (config.anon_key || '').trim();
+    let url = (config.url || DEFAULT_SUPABASE_URL).trim().replace(/\/+$/, '');
+    url = url.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '');
+    const key = (config.anon_key || DEFAULT_SUPABASE_KEY).trim();
 
     if (!url || !key) {
       throw new Error('URL dan Anon Key Supabase harus diisi.');

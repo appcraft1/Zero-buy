@@ -34,13 +34,16 @@ jobs:
       - name: 6. Sinkronisasi Capacitor Native
         run: npx cap sync android
 
-      - name: 7. Berikan Hak Eksekusi Gradlew
-        run: chmod +x android/gradlew
+      - name: 7. Konfigurasi SDK & Hak Eksekusi
+        run: |
+          yes | sdkmanager --licenses || true
+          echo "sdk.dir=$ANDROID_HOME" > android/local.properties
+          chmod +x android/gradlew
 
       - name: 8. Kompilasi Android APK (assembleDebug)
         run: |
           cd android
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: 9. Unggah Hasil APK ke GitHub Artifacts
         uses: actions/upload-artifact@v4
