@@ -296,15 +296,18 @@
     dom.onboardingScreen.classList.add('active');
     renderPikoTo('onboardPikoBox', 'detective', 110);
     const obInc = document.getElementById('obIncomeAmount');
-    if (obInc && !obInc.value) obInc.value = formatNumberWithDots(8000000);
+    if (obInc && !obInc.value) obInc.value = formatNumberWithDots(localStorage.getItem('ob_inc') || 8000000);
     const obObl = document.getElementById('obObligations');
-    if (obObl && !obObl.value) obObl.value = formatNumberWithDots(3000000);
+    if (obObl && !obObl.value) obObl.value = formatNumberWithDots(localStorage.getItem('ob_obl') || 3000000);
     const obGoal = document.getElementById('obGoalAmount');
-    if (obGoal && !obGoal.value) obGoal.value = formatNumberWithDots(15000000);
-    setupOnboardStep(1);
+    if (obGoal && !obGoal.value) obGoal.value = formatNumberWithDots(localStorage.getItem('ob_goal') || 15000000);
+    
+    const savedStep = Number(localStorage.getItem('zero_buy_onboard_step')) || 1;
+    setupOnboardStep(savedStep);
   }
 
   function setupOnboardStep(step) {
+    try { localStorage.setItem('zero_buy_onboard_step', step); } catch (_) {}
     const speechEl = document.getElementById('onboardSpeech');
     const badgeEl = document.getElementById('onboardStepBadge');
     if (badgeEl) badgeEl.innerText = `Langkah ${step}/4`;
@@ -401,8 +404,20 @@
     };
     await ZeroBuyDB.saveUserProfile(state.profile);
 
+    try {
+      localStorage.removeItem('zero_buy_onboard_step');
+      localStorage.removeItem('ob_inc');
+      localStorage.removeItem('ob_obl');
+      localStorage.removeItem('ob_goal');
+    } catch (_) {}
+
     dom.onboardingScreen.classList.remove('active');
     await loadUserData(state.user.id);
+
+    // Auto-sync ke Supabase Cloud
+    try {
+      await ZeroBuyDB.syncWithSupabase(state.user.id);
+    } catch (_) {}
 
     // Tampilkan panduan izin jika belum aktif di HP
     checkAndPromptSystemPermissions();
