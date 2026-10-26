@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#FAF8F5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Zero Buy v4.0 — Point.Zero Commercial Edition</title>
+  
+  <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ======================================================================
+       BRANDED SPLASH SCREEN OVERLAY
+       ====================================================================== -->
+  <div class="modal-overlay active" id="splashOverlay" style="background:var(--bg-base); z-index:99999;">
+    <div style="display:flex; flex-direction:column; align-items:center; text-align:center;">
+      <div id="splashPikoBox" style="margin-bottom:12px;"></div>
+      <h1 style="font-family:var(--font-brand); font-size:1.8rem; font-weight:700; color:var(--piko-orange); letter-spacing:-0.5px;">
+        Zero Buy
+      </h1>
+      <div style="font-family:var(--font-mono); font-size:0.75rem; font-weight:600; color:var(--text-muted); margin-bottom:16px;">
+        Point.Zero Commercial Edition • v4.0
+      </div>
+      <div id="splashStatus" style="font-family:var(--font-brand); font-size:0.9rem; color:var(--text-secondary);">
+        Menghubungkan Piko si Penjaga Dompet...
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MULTI-USER AUTH SCREEN (POINT.ZERO LOGIN / DEMO)
+       ====================================================================== -->
+  <div class="fullscreen-quiz-overlay" id="authScreen" style="background:var(--bg-base); z-index:90000; align-items:center; justify-content:center;">
+    <div class="card" style="width:100%; max-width:390px; text-align:center; padding:28px 22px;">
+      <div id="authPikoBox" style="margin:0 auto 12px;"></div>
+      <h2 style="font-family:var(--font-brand); font-size:1.45rem; color:var(--piko-orange);">Masuk ke Point.Zero</h2>
+      <p style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:20px;">
+        Akses akun lisensi komersial atau mulai sesi offline.
+      </p>
+
+      <div class="form-group" style="text-align:left;">
+        <label class="form-label" for="authEmail">Email atau ID Lisensi</label>
+        <input type="text" class="form-input" id="authEmail" placeholder="nama@pointzero.id" autocomplete="email">
+      </div>
+
+      <div class="form-group" style="text-align:left;">
+        <label class="form-label" for="authPin">PIN / Kata Sandi</label>
+        <div style="position:relative; display:flex; align-items:center;">
+          <input type="password" class="form-input" id="authPin" placeholder="Masukkan PIN atau kata sandi..." style="padding-right:44px;" autocomplete="current-password">
+          <button type="button" id="btnToggleAuthPin" title="Lihat Kata Sandi" style="position:absolute; right:8px; background:none; border:none; cursor:pointer; padding:6px; display:flex; align-items:center; justify-content:center; color:var(--text-secondary);">
+            <span id="iconEyeAuthPin"></span>
+          </button>
+        </div>
+      </div>
+
+      <button type="button" class="btn-3d" id="btnAuthLogin" style="margin-top:6px; margin-bottom:10px;">
+        Masuk Akun Lisensi
+      </button>
+
+      <button type="button" class="btn-3d subtle" id="btnAuthRegister" style="margin-bottom:12px;">
+        Daftar Pengguna Baru
+      </button>
+
+      <button type="button" class="btn-3d subtle" id="btnAuthDemo" style="border:none; box-shadow:none; background:transparent; color:var(--text-muted); font-size:0.85rem;">
+        Mode Demo / Offline (Gunakan Tanpa Akun)
+      </button>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MANDATORY ONBOARDING INTERVIEW WIZARD
+       ====================================================================== -->
+  <div class="fullscreen-quiz-overlay" id="onboardingScreen" style="background:var(--bg-base); z-index:80000;">
+    <div class="quiz-top-bar">
+      <div style="font-family:var(--font-brand); font-size:1.05rem; font-weight:700; color:var(--piko-orange);">
+        Pendataan Keuangan Bersama Piko
+      </div>
+      <div class="brand-pill" id="onboardStepBadge">Langkah 1/4</div>
+    </div>
+
+    <!-- Duolingo Segmented Progress -->
+    <div class="duo-progress-container">
+      <div class="duo-segment filled" id="onboardSeg1"></div>
+      <div class="duo-segment" id="onboardSeg2"></div>
+      <div class="duo-segment" id="onboardSeg3"></div>
+      <div class="duo-segment" id="onboardSeg4"></div>
+    </div>
+
+    <!-- Mascot & Speech -->
+    <div class="quiz-mascot-area">
+      <div id="onboardPikoBox" class="piko-floating"></div>
+      <div class="quiz-speech-balloon" id="onboardSpeech">
+        Halo! Biar Piko bisa menghitung jam kerjamu dengan presisi, bagaimana caramu menerima penghasilan?
+      </div>
+    </div>
+
+    <!-- Onboard Step 1: Frekuensi Pendapatan -->
+    <div class="quiz-options-grid" id="onboardStep1">
+      <div class="quiz-choice-card selected" data-freq="monthly">
+        <div class="choice-left">
+          <div id="iconFreqMonth"></div>
+          <div>
+            <div class="choice-title">Per Bulan</div>
+            <div class="choice-sub">Gaji bulanan tetap / karyawan</div>
+          </div>
+        </div>
+      </div>
+      <div class="quiz-choice-card" data-freq="weekly">
+        <div class="choice-left">
+          <div id="iconFreqWeek"></div>
+          <div>
+            <div class="choice-title">Per Minggu</div>
+            <div class="choice-sub">Upah mingguan / bisnis berkala</div>
+          </div>
+        </div>
+      </div>
+      <div class="quiz-choice-card" data-freq="daily">
+        <div class="choice-left">
+          <div id="iconFreqDay"></div>
+          <div>
+            <div class="choice-title">Per Hari</div>
+            <div class="choice-sub">Penghasilan harian / pedagang / proyek</div>
+          </div>
+        </div>
+      </div>
+      <div class="quiz-choice-card" data-freq="hourly">
+        <div class="choice-left">
+          <div id="iconFreqHour"></div>
+          <div>
+            <div class="choice-title">Per Jam</div>
+            <div class="choice-sub">Freelancer / konsultan hitungan jam</div>
+          </div>
+        </div>
+      </div>
+      <button type="button" class="btn-3d" id="btnOnboardNext1" style="margin-top:12px;">Lanjut ke Nominal</button>
+    </div>
+
+    <!-- Onboard Step 2: Nominal & Jam Kerja -->
+    <div class="quiz-options-grid" id="onboardStep2" style="display:none;">
+      <div class="card" style="padding:16px;">
+        <div class="form-group">
+          <label class="form-label" for="obIncomeAmount">Nominal Pendapatan</label>
+          <div class="input-prefix-box">
+            <span class="input-prefix">Rp</span>
+            <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-input" id="obIncomeAmount" placeholder="8.000.000">
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div class="form-group">
+            <label class="form-label" for="obWorkHoursDay">Jam Kerja/Hari</label>
+            <input type="number" class="form-input" id="obWorkHoursDay" value="8" min="1" max="16">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="obWorkDaysWeek">Hari/Minggu</label>
+            <input type="number" class="form-input" id="obWorkDaysWeek" value="5" min="1" max="7">
+          </div>
+        </div>
+        <div class="work-hours-chip active" id="obCalcHourlyPreview" style="margin-top:4px;">
+          Estimasi Upah Kotor: Rp46.154 / jam
+        </div>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button type="button" class="btn-3d subtle" id="btnOnboardBack2" style="flex:1;">Kembali</button>
+        <button type="button" class="btn-3d" id="btnOnboardNext2" style="flex:2;">Lanjut ke Pengeluaran</button>
+      </div>
+    </div>
+
+    <!-- Onboard Step 3: Kewajiban & Disposable Rate -->
+    <div class="quiz-options-grid" id="onboardStep3" style="display:none;">
+      <div class="card" style="padding:16px;">
+        <div class="form-group">
+          <label class="form-label" for="obObligations">Cicilan Utang, Sewa & Pengeluaran Wajib (Bulanan)</label>
+          <div class="input-prefix-box">
+            <span class="input-prefix">Rp</span>
+            <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-input" id="obObligations" placeholder="3.000.000">
+          </div>
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">
+            Hanya sisa uang bebas yang dihitung untuk jam kerja evaluasi barang.
+          </div>
+        </div>
+        <div class="work-hours-chip active" id="obCalcDisposablePreview">
+          Upah Jam Bebas (Real Rate): Rp28.848 / jam
+        </div>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button type="button" class="btn-3d subtle" id="btnOnboardBack3" style="flex:1;">Kembali</button>
+        <button type="button" class="btn-3d" id="btnOnboardNext3" style="flex:2;">Lanjut ke Target</button>
+      </div>
+    </div>
+
+    <!-- Onboard Step 4: Target Finansial Pertama -->
+    <div class="quiz-options-grid" id="onboardStep4" style="display:none;">
+      <div class="card" style="padding:16px;">
+        <div class="form-group">
+          <label class="form-label" for="obGoalName">Nama Target Finansial Pertama</label>
+          <input type="text" class="form-input" id="obGoalName" placeholder="Contoh: Pelunasan Utang / Laptop Baru / Dana Darurat" value="Pelunasan Utang Prioritas">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="obGoalAmount">Target Nominal (Rp)</label>
+          <div class="input-prefix-box">
+            <span class="input-prefix">Rp</span>
+            <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-input" id="obGoalAmount" placeholder="15.000.000">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="obGoalCategory">Kategori Target</label>
+          <select class="form-select" id="obGoalCategory">
+            <option value="debt">Pelunasan Utang</option>
+            <option value="emergency">Dana Darurat</option>
+            <option value="savings">Tabungan Impian</option>
+            <option value="investment">Investasi</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button type="button" class="btn-3d subtle" id="btnOnboardBack4" style="flex:1;">Kembali</button>
+        <button type="button" class="btn-3d emerald" id="btnOnboardFinish" style="flex:2;">Selesai & Mulai Jaga Uangku</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       APP SHELL & TOP BAR
+       ====================================================================== -->
+  <div class="app-container">
+    <header class="top-bar">
+      <div class="brand-row">
+        <div id="brandIconBox"></div>
+        <div>
+          <span class="brand-title">Zero Buy</span>
+          <span class="brand-pill">v4.0</span>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <!-- Theme Toggle Button (Light/Dark) -->
+        <button class="icon-btn" id="btnToggleTheme" title="Ganti Tema">
+          <span id="iconThemeBox"></span>
+        </button>
+
+        <!-- Permission Center Button -->
+        <button class="icon-btn" id="btnOpenPermissions" title="Pusat Izin Sistem">
+          <span id="iconPermBox"></span>
+        </button>
+
+        <!-- User Profile & Cloud Sync Button -->
+        <button class="icon-btn" id="btnOpenProfile" title="Profil & Cloud Sync">
+          <span id="iconUserBox"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ======================================================================
+         VIEW 1: EVALUASI & DASHBOARD
+         ====================================================================== -->
+    <main class="view-section active" id="viewDashboard">
+      
+      <!-- Piko Greeting Card -->
+      <section class="piko-greeting-card">
+        <div class="piko-avatar-box" id="pikoGreetingBox"></div>
+        <div class="piko-balloon" id="pikoGreetingText">
+          Halo! Masukkan barang yang mau kamu beli atau klik tombol olshop untuk saya periksa!
+        </div>
+      </section>
+
+      <!-- Hero Money Saved & Target Tracker -->
+      <section class="hero-card">
+        <div class="hero-tag">
+          <span id="heroShieldIcon"></span>
+          Total Uang Berhasil Diselamatkan
+        </div>
+        <div class="hero-amount" id="heroSavedAmount">Rp0</div>
+        <div class="hero-sub" id="heroSavedCount">0 barang batal dibeli berkat pertimbangan matang.</div>
+
+        <div class="goal-progress-wrap" id="heroGoalWrap" style="display:none;">
+          <div class="goal-progress-info">
+            <span id="heroGoalName">Target Finansial</span>
+            <span id="heroGoalPct">0%</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill primary" id="heroGoalFill" style="width:0%;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Quick Metrics Grid -->
+      <section class="metrics-row">
+        <div class="metric-box">
+          <div class="metric-box-title">
+            <span id="iconMetricClock"></span>
+            Upah Jam Bebas
+          </div>
+          <div class="metric-box-val" id="metricHourlyRate">Rp28.848</div>
+          <div class="metric-box-sub">Uang bebas / jam kerja</div>
+        </div>
+
+        <div class="metric-box">
+          <div class="metric-box-title">
+            <span id="iconMetricCart"></span>
+            Wishlist Tunda
+          </div>
+          <div class="metric-box-val" id="metricActiveCooling">0 Barang</div>
+          <div class="metric-box-sub">Sedang pendinginan</div>
+        </div>
+      </section>
+
+      <!-- Smart Olshop Bypass Button -->
+      <button type="button" class="btn-olshop-bypass" id="btnOpenOlshopModal">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span id="iconZapBypass"></span>
+          <span>Tempel Link / Teks Share Olshop</span>
+        </div>
+        <span class="bypass-badge">Auto-Extract</span>
+      </button>
+
+      <!-- Evaluation Form Card -->
+      <section class="card">
+        <div class="card-header-title">
+          <span id="iconFormEval"></span>
+          <span>Uji Keputusan Belanja</span>
+        </div>
+        <p class="card-desc">Bandingkan harga barang dengan jam kerja keringat bebasmu.</p>
+
+        <div class="form-group">
+          <label class="form-label" for="itemName">Nama Barang / Produk</label>
+          <input type="text" class="form-input" id="itemName" placeholder="Misal: Sepatu Lari / Headphone Wireless" autocomplete="off" maxlength="80">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="itemPrice">Harga Barang (Rp)</label>
+          <div class="input-prefix-box">
+            <span class="input-prefix">Rp</span>
+            <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-input" id="itemPrice" placeholder="450.000">
+          </div>
+          <div class="work-hours-chip" id="workHoursPill">
+            <span id="workHoursIcon"></span>
+            <span id="workHoursText">--</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="form-label">
+            <span>Kategori Barang</span>
+            <button type="button" style="background:none; border:none; color:var(--piko-dark-orange); font-family:var(--font-brand); font-size:0.8rem; cursor:pointer;" id="btnManageCategories">
+              + Kelola Kategori
+            </button>
+          </div>
+          <select class="form-select" id="itemCategory"></select>
+        </div>
+
+        <button type="button" class="btn-3d" id="btnStartQuiz" style="margin-top:8px;">
+          Mulai Tes Bareng Piko
+        </button>
+      </section>
+    </main>
+
+    <!-- ======================================================================
+         VIEW 2: KERANJANG OLSHOP SINKRONISASI
+         ====================================================================== -->
+    <section class="view-section" id="viewCart">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <div>
+          <h2 style="font-family:var(--font-brand); font-size:1.25rem;">Keranjang Olshop</h2>
+          <p style="font-size:0.8rem; color:var(--text-secondary);">Otomatis tertangkap saat membuka Shopee & Tokopedia.</p>
+        </div>
+        <button type="button" class="btn-3d subtle" id="btnClearCart" style="width:auto; padding:6px 12px; font-size:0.8rem;">
+          Bersihkan
+        </button>
+      </div>
+
+      <div id="cartAccessibilityNotice" class="card" style="display:none; background:var(--piko-cream); border-color:rgba(234,88,12,0.3); padding:14px; margin-bottom:14px;">
+        <div style="display:flex; gap:10px; align-items:flex-start;">
+          <div id="iconCartNotice"></div>
+          <div>
+            <div style="font-family:var(--font-brand); font-size:0.92rem; font-weight:700; color:var(--piko-shadow);">
+              Aktivasi Pembaca Keranjang
+            </div>
+            <div style="font-size:0.78rem; color:var(--text-secondary); margin:2px 0 8px;">
+              Aktifkan Aksesibilitas agar setiap membuka keranjang Shopee/Tokopedia langsung tersinkron di sini.
+            </div>
+            <button type="button" class="btn-3d" id="btnActivateCartReader" style="width:auto; padding:6px 14px; font-size:0.8rem;">
+              Aktifkan Sekarang
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="cartItemsContainer"></div>
+    </section>
+
+    <!-- ======================================================================
+         VIEW 3: MASA TUNDA (COOLING-OFF WISHLIST)
+         ====================================================================== -->
+    <section class="view-section" id="viewWishlist">
+      <div style="margin-bottom:16px;">
+        <h2 style="font-family:var(--font-brand); font-size:1.25rem;">Masa Tunda Aktif</h2>
+        <p style="font-size:0.8rem; color:var(--text-secondary);">Barang dalam proses pendinginan emosi. Jangan beli sebelum timer selesai.</p>
+      </div>
+
+      <div id="wishlistContainer"></div>
+    </section>
+
+    <!-- ======================================================================
+         VIEW 4: TARGET FINANSIAL & DEBT (CRUD)
+         ====================================================================== -->
+    <section class="view-section" id="viewGoals">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <div>
+          <h2 style="font-family:var(--font-brand); font-size:1.25rem;">Target Finansial</h2>
+          <p style="font-size:0.8rem; color:var(--text-secondary);">Prioritas utang & tabungan masa depanmu.</p>
+        </div>
+        <button type="button" class="btn-3d" id="btnOpenAddGoal" style="width:auto; padding:8px 14px; font-size:0.82rem;">
+          + Target Baru
+        </button>
+      </div>
+
+      <div id="goalsContainer"></div>
+    </section>
+
+    <!-- ======================================================================
+         VIEW 5: RIWAYAT KEPUTUSAN
+         ====================================================================== -->
+    <section class="view-section" id="viewHistory">
+      <div style="margin-bottom:14px;">
+        <h2 style="font-family:var(--font-brand); font-size:1.25rem;">Riwayat Keputusan</h2>
+        <p style="font-size:0.8rem; color:var(--text-secondary);">Rekam jejak evaluasi dan uang yang berhasil diselamatkan.</p>
+      </div>
+
+      <div style="display:flex; gap:6px; margin-bottom:16px; overflow-x:auto;">
+        <button class="btn-3d subtle" style="width:auto; padding:6px 12px; font-size:0.8rem;" data-filter="all">Semua</button>
+        <button class="btn-3d subtle" style="width:auto; padding:6px 12px; font-size:0.8rem;" data-filter="saved">Diselamatkan</button>
+        <button class="btn-3d subtle" style="width:auto; padding:6px 12px; font-size:0.8rem;" data-filter="cooling">Dalam Tunda</button>
+        <button class="btn-3d subtle" style="width:auto; padding:6px 12px; font-size:0.8rem;" data-filter="bought">Sudah Beli</button>
+      </div>
+
+      <div id="historyContainer"></div>
+    </section>
+
+    <!-- ======================================================================
+         BOTTOM NAVIGATION BAR (5 TAB RESMI)
+         ====================================================================== -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-target="viewDashboard">
+        <span id="navIconEval"></span>
+        <span class="nav-label">Evaluasi</span>
+      </button>
+
+      <button class="nav-item" data-target="viewCart">
+        <span id="navIconCart"></span>
+        <span class="nav-label">Keranjang</span>
+      </button>
+
+      <button class="nav-item" data-target="viewWishlist">
+        <div class="nav-badge-dot" id="wishlistDot" style="display:none;"></div>
+        <span id="navIconWait"></span>
+        <span class="nav-label">Masa Tunda</span>
+      </button>
+
+      <button class="nav-item" data-target="viewGoals">
+        <span id="navIconGoal"></span>
+        <span class="nav-label">Target</span>
+      </button>
+
+      <button class="nav-item" data-target="viewHistory">
+        <span id="navIconHistory"></span>
+        <span class="nav-label">Riwayat</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- ======================================================================
+       FULL-SCREEN DEDICATED QUIZ SCREEN (1 LAYAR PENUH)
+       ====================================================================== -->
+  <div class="fullscreen-quiz-overlay" id="fullScreenQuiz">
+    <div class="quiz-top-bar">
+      <button type="button" class="icon-btn" id="btnCancelQuiz" title="Tutup Kuis">
+        <span id="iconCloseQuiz"></span>
+      </button>
+      <div class="quiz-item-chip" id="quizItemChip">
+        Mechanical Keyboard • Rp850.000
+      </div>
+      <div class="brand-pill" id="quizStepLabel">1 / 4</div>
+    </div>
+
+    <!-- Segmented Progress Bar -->
+    <div class="duo-progress-container">
+      <div class="duo-segment filled" id="quizSeg1"></div>
+      <div class="duo-segment" id="quizSeg2"></div>
+      <div class="duo-segment" id="quizSeg3"></div>
+      <div class="duo-segment" id="quizSeg4"></div>
+    </div>
+
+    <!-- Piko Reaction Mascot & Speech -->
+    <div class="quiz-mascot-area">
+      <div id="quizPikoBox" class="piko-floating"></div>
+      <div class="quiz-speech-balloon" id="quizSpeechText">
+        Pertanyaan evaluasi akan muncul di sini...
+      </div>
+    </div>
+
+    <!-- Step 1 Question -->
+    <div class="quiz-options-grid" id="quizStep1">
+      <div class="quiz-choice-card" data-q="1" data-val="true">
+        <div class="choice-left">
+          <div id="iconQ1A"></div>
+          <div>
+            <div class="choice-title">Sudah > 14 Hari Lalu</div>
+            <div class="choice-sub">Niat matang, bukan dorongan sesaat</div>
+          </div>
+        </div>
+      </div>
+      <div class="quiz-choice-card" data-q="1" data-val="false">
+        <div class="choice-left">
+          <div id="iconQ1B"></div>
+          <div>
+            <div class="choice-title">Baru Hari Ini / Spontan</div>
+            <div class="choice-sub">Baru liat promo, diskon, atau racun medsos</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2 Question (VETO) -->
+    <div class="quiz-options-grid" id="quizStep2" style="display:none;">
+      <div class="quiz-choice-card veto-warning" data-q="2" data-val="true">
+        <div class="choice-left">
+          <div id="iconQ2A"></div>
+          <div>
+            <div class="choice-title">Ya, Mengganggu / Berisiko</div>
+            <div class="choice-sub">Cicilan utang atau kas hidup pokok terancam</div>
+          </div>
+        </div>
+      </div>
+      <div class="quiz-choice-card" data-q="2" data-val="false">
+        <div class="choice-left">
+          <div id="iconQ2B"></div>
+          <div>
+            <div class="choice-title">Tidak, Kas Hidup Aman</div>
+            <div class="choice-sub">Seluruh kewajiban wajib bulan ini sudah terpenuhi</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3 Question -->
+    <div class="quiz-options-grid" id="quizStep3" style="display:none;">
+      <div class="quiz-choice-card" data-q="3" data-val="true">
+        <div class="choice-left">
+          <div id="iconQ3A"></div>
+          <div>
+            <div class="choice-title">Murni Fungsi & Kebutuhan</div>
+            <div class="choice-sub">Menghasilkan uang atau mengganti yang rusak</div>
+          </div>
+        </div>
+      </div>
+      <div class="quiz-choice-card" data-q="3" data-val="false">
+        <div class="choice-left">
+          <div id="iconQ3B"></div>
+          <div>
+            <div class="choice-title">Gengsi / FOMO / Sekadar Mau</div>
+            <div class="choice-sub">Biar keren atau penasaran sesaat</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 4 Question -->
+    <div class="quiz-options-grid" id="quizStep4" style="display:none;">
+      <div class="quiz-choice-card" data-q="4" data-val="true">
+        <div class="choice-left">
+          <div id="iconQ4A"></div>
+          <div>
+            <div class="choice-title">Sudah Aman (≥ 3 Bulan)</div>
+            <div class="choice-sub">Ada dana cadangan siap jika ada kondisi mendesak</div>
+          </div>
+        </div>
+      </div>
+      <div class="quiz-choice-card" data-q="4" data-val="false">
+        <div class="choice-left">
+          <div id="iconQ4B"></div>
+          <div>
+            <div class="choice-title">Belum Aman</div>
+            <div class="choice-sub">Tabungan darurat masih sangat minim atau kosong</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       FULL-SCREEN VERDICT OVERLAY (HASIL 1 LAYAR PENUH)
+       ====================================================================== -->
+  <div class="fullscreen-verdict-overlay" id="fullScreenVerdict">
+    <div class="verdict-header-box">
+      <div id="verdictPikoBox" class="piko-floating"></div>
+      <div class="score-circle safe" id="verdictScoreCircle">85</div>
+      <div class="brand-pill" id="verdictStatusPill">LAYAK DIBELI</div>
+      <h3 class="verdict-title" id="verdictItemTitle">Nama Barang</h3>
+      <p class="verdict-advice" id="verdictAdvice">Petuah keuangan Piko akan muncul di sini.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:14px; padding:16px;">
+      <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:0.85rem;">
+        <span style="color:var(--text-secondary);">Harga Barang:</span>
+        <span style="font-family:var(--font-mono); font-weight:700;" id="verdictPrice">Rp0</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:0.85rem;">
+        <span style="color:var(--text-secondary);">Setara Beban Jam Kerja:</span>
+        <span style="font-family:var(--font-mono); font-weight:700; color:var(--piko-dark-orange);" id="verdictHours">--</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-size:0.85rem;">
+        <span style="color:var(--text-secondary);">Rekomendasi Masa Tunda:</span>
+        <span style="font-family:var(--font-mono); font-weight:700;" id="verdictCooling">48 Jam</span>
+      </div>
+    </div>
+
+    <!-- Alternatif Investasi -->
+    <div class="card" style="margin-bottom:20px; padding:16px; background:var(--bg-elevated);">
+      <div style="font-family:var(--font-brand); font-size:0.9rem; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+        <span id="iconInvestGrowth"></span>
+        Jika Uang Ini Diinvestasikan (6% p.a.)
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div>
+          <div style="font-size:0.75rem; color:var(--text-muted);">Nilai 1 Tahun</div>
+          <div style="font-family:var(--font-mono); font-size:1.05rem; font-weight:700; color:var(--color-safe);" id="invest1y">Rp0</div>
+        </div>
+        <div>
+          <div style="font-size:0.75rem; color:var(--text-muted);">Nilai 3 Tahun</div>
+          <div style="font-family:var(--font-mono); font-size:1.05rem; font-weight:700; color:var(--color-safe);" id="invest3y">Rp0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div style="display:flex; flex-direction:column; gap:10px; margin-top:auto;">
+      <button type="button" class="btn-3d emerald" id="btnVerdictSaveMoney">
+        Batal Beli & Amankan Uang Ini
+      </button>
+      <button type="button" class="btn-3d" id="btnVerdictStartCooling">
+        Mulai Masa Tunda Pendinginan
+      </button>
+      <button type="button" class="btn-3d subtle" id="btnVerdictClose">
+        Tutup Evaluasi
+      </button>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL 1: ALOKASI UANG SELAMAT KE TARGET FINANSIAL
+       ====================================================================== -->
+  <div class="modal-overlay" id="allocateModal">
+    <div class="modal-sheet" style="text-align:center;">
+      <div id="allocatePikoBox" style="margin:0 auto 8px;"></div>
+      <h3 style="font-family:var(--font-brand); font-size:1.25rem; color:var(--color-safe);">Uang Berhasil Diselamatkan!</h3>
+      <p style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:16px;">
+        Kamu baru saja menyelamatkan <strong id="allocateAmountText" style="color:var(--text-primary); font-family:var(--font-mono);">Rp0</strong> dari belanja impulsif. Alokasikan ke targetmu:
+      </p>
+
+      <div class="form-group" style="text-align:left;">
+        <label class="form-label" for="allocateGoalSelect">Pilih Target Finansial</label>
+        <select class="form-select" id="allocateGoalSelect"></select>
+      </div>
+
+      <button type="button" class="btn-3d emerald" id="btnConfirmAllocate" style="margin-bottom:8px;">
+        Alokasikan ke Target Ini
+      </button>
+      <button type="button" class="btn-3d subtle" id="btnSkipAllocate">
+        Simpan Tanpa Alokasi
+      </button>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL 2: PUSAT AKTIVASI SISTEM & IZIN OTOMATIS
+       ====================================================================== -->
+  <div class="modal-overlay" id="permissionModal">
+    <div class="modal-sheet">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h3 style="font-family:var(--font-brand); font-size:1.15rem;">Pusat Izin Sistem Android</h3>
+        <button type="button" class="icon-btn" id="btnClosePermModal" style="width:32px; height:32px;">
+          <span id="iconClosePerm"></span>
+        </button>
+      </div>
+
+      <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:14px;">
+        Fitur otomasi bypass Point.Zero memerlukan izin sistem berikut agar berjalan di latar belakang:
+      </p>
+
+      <!-- Card 1: Notifikasi -->
+      <div class="permission-card">
+        <div>
+          <div style="font-family:var(--font-brand); font-weight:700; font-size:0.9rem;">Notifikasi Native</div>
+          <div style="font-size:0.75rem; color:var(--text-secondary);">Alarm pengingat saat masa tunda habis</div>
+        </div>
+        <button type="button" class="btn-3d" id="btnReqNotif" style="width:auto; padding:6px 12px; font-size:0.78rem;">
+          Izinkan
+        </button>
+      </div>
+
+      <!-- Card 2: Baterai Stay-Alive -->
+      <div class="permission-card">
+        <div>
+          <div style="font-family:var(--font-brand); font-weight:700; font-size:0.9rem;">Hemat Baterai (Bypass)</div>
+          <div style="font-size:0.75rem; color:var(--text-secondary);">Mencegah sistem mematikan alarm tunda</div>
+        </div>
+        <button type="button" class="btn-3d" id="btnReqBattery" style="width:auto; padding:6px 12px; font-size:0.78rem;">
+          Bebaskan
+        </button>
+      </div>
+
+      <!-- Card 3: Pembaca Keranjang Olshop -->
+      <div class="permission-card">
+        <div>
+          <div style="font-family:var(--font-brand); font-weight:700; font-size:0.9rem;">Pembaca Keranjang Olshop</div>
+          <div style="font-size:0.75rem; color:var(--text-secondary);">Aksesibilitas Shopee/Tokopedia</div>
+        </div>
+        <button type="button" class="btn-3d" id="btnReqAccess" style="width:auto; padding:6px 12px; font-size:0.78rem;">
+          Buka Setelan
+        </button>
+      </div>
+
+      <button type="button" class="btn-3d emerald" id="btnClosePermDone" style="margin-top:8px;">
+        Selesai & Tutup
+      </button>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL 3: KELOLA KATEGORI KUSTOM
+       ====================================================================== -->
+  <div class="modal-overlay" id="categoryModal">
+    <div class="modal-sheet">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h3 style="font-family:var(--font-brand); font-size:1.15rem;">Kelola Kategori Barang</h3>
+        <button type="button" class="icon-btn" id="btnCloseCategoryModal" style="width:32px; height:32px;">
+          <span id="iconCloseCat"></span>
+        </button>
+      </div>
+
+      <div id="categoryListContainer" style="margin-bottom:16px;"></div>
+
+      <div style="border-top:1px solid var(--border-subtle); padding-top:14px;">
+        <h4 style="font-family:var(--font-brand); font-size:0.92rem; margin-bottom:10px;">+ Tambah Kategori Baru</h4>
+        <div class="form-group">
+          <input type="text" class="form-input" id="newCatName" placeholder="Nama Kategori (misal: Hobi Kopi)">
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+          <div>
+            <label class="form-label">Masa Tunda (Jam)</label>
+            <input type="number" class="form-input" id="newCatHours" value="48" min="12" max="168">
+          </div>
+          <div>
+            <label class="form-label">Bobot Disiplin</label>
+            <input type="number" class="form-input" id="newCatWeight" value="15" min="5" max="25">
+          </div>
+        </div>
+        <button type="button" class="btn-3d" id="btnAddCategory">Tambah Kategori</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL 4: TAMBAH TARGET FINANSIAL
+       ====================================================================== -->
+  <div class="modal-overlay" id="goalModal">
+    <div class="modal-sheet">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h3 style="font-family:var(--font-brand); font-size:1.15rem;">Target Finansial Baru</h3>
+        <button type="button" class="icon-btn" id="btnCloseGoalModal" style="width:32px; height:32px;">
+          <span id="iconCloseGoal"></span>
+        </button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="goalName">Nama Target</label>
+        <input type="text" class="form-input" id="goalName" placeholder="Contoh: Pelunasan Kartu Kredit / Laptop Kerja">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="goalAmount">Nominal Target (Rp)</label>
+        <div class="input-prefix-box">
+          <span class="input-prefix">Rp</span>
+          <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-input" id="goalAmount" placeholder="20.000.000">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="goalCategory">Kategori</label>
+        <select class="form-select" id="goalCategory">
+          <option value="debt">Pelunasan Utang</option>
+          <option value="emergency">Dana Darurat</option>
+          <option value="savings">Tabungan Impian</option>
+          <option value="investment">Investasi</option>
+        </select>
+      </div>
+
+      <button type="button" class="btn-3d emerald" id="btnSaveGoal">Simpan Target</button>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL 5: PROFIL, PENGATURAN & CLOUD SYNC
+       ====================================================================== -->
+  <div class="modal-overlay" id="profileModal">
+    <div class="modal-sheet">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h3 style="font-family:var(--font-brand); font-size:1.15rem;">Profil & Setelan</h3>
+        <button type="button" class="icon-btn" id="btnCloseProfileModal" style="width:32px; height:32px;">
+          <span id="iconCloseProf"></span>
+        </button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="profEmail">Akun Aktif</label>
+        <input type="text" class="form-input" id="profEmail" readonly style="opacity:0.8;">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="profFreq">Frekuensi Pendapatan</label>
+        <select class="form-select" id="profFreq">
+          <option value="monthly">Per Bulan</option>
+          <option value="weekly">Per Minggu</option>
+          <option value="daily">Per Hari</option>
+          <option value="hourly">Per Jam</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="profAmount">Nominal Pendapatan</label>
+        <div class="input-prefix-box">
+          <span class="input-prefix">Rp</span>
+          <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-input" id="profAmount">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="profObligations">Kewajiban / Cicilan Tetap Bulanan</label>
+        <div class="input-prefix-box">
+          <span class="input-prefix">Rp</span>
+          <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-input" id="profObligations">
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;">
+        <div>
+          <label class="form-label" for="profWorkHours">Jam/Hari</label>
+          <input type="number" class="form-input" id="profWorkHours" min="1" max="16">
+        </div>
+        <div>
+          <label class="form-label" for="profWorkDays">Hari/Minggu</label>
+          <input type="number" class="form-input" id="profWorkDays" min="1" max="7">
+        </div>
+      </div>
+
+      <button type="button" class="btn-3d" id="btnSaveProfileSettings" style="margin-bottom:12px;">
+        Simpan Perubahan
+      </button>
+
+      <div style="display:flex; gap:10px; margin-bottom:12px;">
+        <button type="button" class="btn-3d subtle" id="btnExportBackup" style="flex:1; font-size:0.78rem;">
+          Cadangkan Data
+        </button>
+        <button type="button" class="btn-3d subtle" id="btnImportBackup" style="flex:1; font-size:0.78rem;">
+          Pulihkan Data
+        </button>
+        <input type="file" id="backupFileInput" style="display:none;" accept=".json">
+      </div>
+
+      <!-- Supabase Cloud Sync Settings -->
+      <div style="border-top:1px solid var(--border-subtle); margin-top:14px; padding-top:14px; text-align:left;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+          <div style="display:flex; align-items:center; gap:6px; font-family:var(--font-brand); font-weight:700; font-size:0.95rem; color:var(--text-primary);">
+            <span id="iconCloudBox"></span>
+            <span>Koneksi Supabase Cloud (Multi-User)</span>
+          </div>
+          <span class="status-pill" id="cloudStatusBadge" style="background:var(--bg-elevated); color:var(--text-muted); font-size:0.7rem;">Offline</span>
+        </div>
+        <p style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:10px;">
+          Sinkronkan data evaluasi & target ke database Supabase pribadimu dengan Row Level Security (RLS).
+        </p>
+        <div class="form-group">
+          <label class="form-label" for="profCloudUrl">Project URL (Supabase)</label>
+          <input type="text" class="form-input" id="profCloudUrl" placeholder="https://xyzcompany.supabase.co" autocomplete="off" style="font-family:var(--font-mono); font-size:0.8rem;">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="profCloudKey">Anon / Public Key</label>
+          <input type="password" class="form-input" id="profCloudKey" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..." autocomplete="off" style="font-family:var(--font-mono); font-size:0.8rem;">
+        </div>
+        <button type="button" class="btn-3d subtle" id="btnSyncCloudNow" style="width:100%; font-size:0.82rem; margin-bottom:14px;">
+          <span id="iconSyncBtnBox"></span>
+          <span>Tes & Sinkronkan Cloud Sekarang</span>
+        </button>
+      </div>
+
+      <button type="button" class="btn-3d danger" id="btnLogoutUser" style="width:100%; font-size:0.85rem;">
+        Keluar Akun Point.Zero
+      </button>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL 6: TEMPEL LINK / SHARE OLSHOP
+       ====================================================================== -->
+  <div class="modal-overlay" id="olshopModal">
+    <div class="modal-sheet">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h3 style="font-family:var(--font-brand); font-size:1.15rem;">Tempel Link / Share Olshop</h3>
+        <button type="button" class="icon-btn" id="btnCloseOlshopModal" style="width:32px; height:32px;">
+          <span id="iconCloseOlshop"></span>
+        </button>
+      </div>
+
+      <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:12px;">
+        Tempelkan teks hasil salin atau bagikan tautan dari Shopee, Tokopedia, TikTok Shop, atau Lazada.
+      </p>
+
+      <div class="form-group">
+        <textarea class="form-input" id="olshopRawInput" rows="4" placeholder="Tempel tautan atau teks share di sini..."></textarea>
+      </div>
+
+      <button type="button" class="btn-3d" id="btnProcessOlshopText">
+        Ekstrak & Isi Otomatis
+      </button>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/piko.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

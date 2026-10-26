@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Zero Buy</string>
+    <string name="title_activity_main">Zero Buy</string>
+    <string name="package_name">com.iaiflash.zerobuy</string>
+    <string name="custom_url_scheme">com.iaiflash.zerobuy</string>
+    <string name="accessibility_service_description">Layanan otomatis pembaca keranjang belanja Shopee, Tokopedia, TikTok Shop, dan Lazada untuk dievaluasi oleh Piko di Zero Buy.</string>
+</resources>

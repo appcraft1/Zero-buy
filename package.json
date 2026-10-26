@@ -1,0 +1,25 @@
+{
+  "name": "zero-buy",
+  "version": "4.0.0",
+  "description": "Zero Buy v4.0 - Point.Zero Commercial Edition (Anti-Impulsive Engine with Piko & Cart Reader)",
+  "main": "www/index.html",
+  "author": "Muhammad Asep Solihin (Z.E.R.O. Operating System)",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "build": "node build.js",
+    "cap:sync": "npx cap sync android",
+    "cap:open": "npx cap open android",
+    "icons": "powershell -ExecutionPolicy Bypass -File generate-icons.ps1"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/haptics": "^6.0.2",
+    "@capacitor/local-notifications": "^6.1.1",
+    "@capacitor/status-bar": "^6.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2"
+  }
+}

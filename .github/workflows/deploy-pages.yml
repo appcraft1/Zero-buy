@@ -1,0 +1,45 @@
+name: Auto Deploy Web App (GitHub Pages)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy-web:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Checkout Kode
+        uses: actions/checkout@v4
+
+      - name: 2. Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 3. Bundling Frontend (src -> www)
+        run: node build.js
+
+      - name: 4. Setup GitHub Pages
+        uses: actions/configure-pages@v4
+
+      - name: 5. Unggah Aset Web
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'www'
+
+      - name: 6. Deploy ke GitHub Pages Cloud
+        id: deployment
+        uses: actions/deploy-pages@v4

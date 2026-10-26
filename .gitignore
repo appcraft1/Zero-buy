@@ -1,0 +1,42 @@
+# Node.js Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Local Environment Variables & Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Android Local & Build Caches (Crucial: do not commit local SDK paths & build outputs)
+android/local.properties
+android/.gradle/
+android/build/
+android/app/build/
+android/captures/
+android/.idea/
+android/*.iml
+android/app/*.iml
+android/.cxx/
+
+# Compiled Binaries & Packages
+*.apk
+*.aab
+
+# OS Generated Files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# Editor Settings
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sublime-workspace
